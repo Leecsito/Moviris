@@ -296,7 +296,7 @@ La bienvenida se sirve en `/` y es completamente estática: **no llama a la API 
 | `styles.css` | Tema oscuro, red de puntos, órbita, CTA con esquinas cortadas, revelado y responsive; **sin header/footer** |
 | `script.js` | Red de puntos, revelado y transición `is-leaving`; sin llamadas a la API |
 
-- **Copy:** “Lee el fuego antes de que avance.” / “Más de una década de focos de calor en Ecuador, en un solo calendario.” / **Explorar el fuego**.
+- **Copy:** “Lee el fuego antes de que avance.” / “Focos de calor de NASA FIRMS, en un solo calendario.” / **Explorar el fuego**. La portada no fija un rango de años: el período real lo entrega la API en Mapa, Calendario y Dashboard.
 - **Sin header ni footer:** la portada no monta `#site-header` ni carga `/header/*`; el header compartido se usa solo en `/etl/` y `/inicio/` (y futuras páginas).
 - **Red de puntos:** canvas fijo con nodos que se conectan por proximidad y se mueven lentamente; se detiene con movimiento reducido.
 - **Satélite:** SVG `.sat` con anillo de marcas, órbita y Tierra; el grupo `.orb` gira 48 s con animación CSS. En pantallas bajas se oculta para no forzar scroll.
@@ -313,7 +313,7 @@ El header es un componente separado; **no se copia su HTML dentro de las página
 
 | Archivo | Rol |
 |---|---|
-| `index.html` | Fragmento: marca, navegación (Inicio, Calendario, Mapa, Dashboard, ETL), rango 2012–2026 y selector `EN/ES` |
+| `index.html` | Fragmento: marca, navegación (Inicio, Calendario, Mapa, Dashboard, ETL) y selector `EN/ES`. Sin rango de años estático: el período real se consulta a la API |
 | `style.css` | Estilos con alcance `#site-header`, pestaña activa, selector de idioma y responsive |
 | `script.js` | Descarga el fragmento, lo inyecta en `#site-header`, marca `aria-current="page"` y aplica el idioma al fragmento |
 

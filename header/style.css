@@ -160,13 +160,6 @@
   white-space: nowrap;
 }
 
-.hd-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--hd-sage);
-}
-
 /* --------------------------------------------------------------------------
    Responsive: las pestañas pasan a una segunda fila con scroll horizontal
    -------------------------------------------------------------------------- */
@@ -217,10 +210,6 @@
   .hd-tab--featured {
     padding: 0 20px;
   }
-}
-
-.hd-lang {
-  margin-left: 8px;
 }
 
 .hd-lang select {

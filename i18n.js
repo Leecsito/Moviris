@@ -15,14 +15,14 @@
   const EN = {
     /* Portada */
     "MOVIRIS · Lee el fuego antes de que avance": "MOVIRIS · Read the fire before it spreads",
-    "Focos de calor · Ecuador": "Fire hotspots · Ecuador",
+    "Focos de calor · NASA FIRMS": "Fire hotspots · NASA FIRMS",
     "Lee el fuego": "Read the fire",
     "antes de que": "before it",
     "avance.": "spreads.",
-    "Más de una década de focos de calor en Ecuador, en un solo calendario.": "More than a decade of fire hotspots in Ecuador, in a single calendar.",
+    "Focos de calor de NASA FIRMS, en un solo calendario.": "NASA FIRMS fire hotspots, in a single calendar.",
     "Explorar el fuego": "Explore the fire",
     "Datos satelitales · NASA FIRMS": "Satellite data · NASA FIRMS",
-    "Período": "Period",
+    "Fuente": "Source",
     "Sensores": "Sensors",
     "Malla común": "Common grid",
     "Satélite orbitando la Tierra": "Satellite orbiting Earth",
@@ -41,18 +41,16 @@
 
     /* Inicio */
     "Inicio · MOVIRIS": "Home · MOVIRIS",
-    "Focos de calor · Ecuador · 2012–2026": "Fire hotspots · Ecuador · 2012–2026",
     "Cinco satélites.": "Five satellites.",
     "Dos sensores.": "Two sensors.",
     "Una sola historia del fuego.": "One single story of fire.",
-    "MODIS y VIIRS llevan años vigilando Ecuador, pero no se pueden comparar. MOVIRIS los une para que veas cuándo y dónde arde, y cuándo algo se sale de lo normal.": "MODIS and VIIRS have monitored Ecuador for years, but they cannot be compared. MOVIRIS brings them together so you can see when and where fires burn, and when something is out of the ordinary.",
+    "MODIS y VIIRS llevan años vigilando el planeta, pero no se pueden comparar. MOVIRIS los une para que veas cuándo y dónde arde, y cuándo algo se sale de lo normal.": "MODIS and VIIRS have monitored the planet for years, but they cannot be compared. MOVIRIS brings them together so you can see when and where fires burn, and when something is out of the ordinary.",
     "Elige tu zona en el mapa": "Choose your area on the map",
     "Ver el calendario": "View the calendar",
     "El problema": "The problem",
-    "Los satélites llevan más de dos décadas rastreando el fuego, pero cada sensor lo cuenta a su manera. En Ecuador hay": "Satellites have been tracking fires for more than two decades, but each sensor tells it its own way. In Ecuador there are",
-    "560.264 detecciones": "560,264 detections",
+    "Los satélites llevan más de dos décadas rastreando el fuego, pero cada sensor lo cuenta a su manera. Hay": "Satellites have been tracking fires for more than two decades, but each sensor tells it its own way. There are",
     "de": "from",
-    "5 satélites": "5 satellites",
+    "varios satélites": "several satellites",
     "que no se pueden sumar sin más.": "that cannot simply be added together.",
     "Sin una imagen consistente, nadie sabe con certeza cuándo y dónde se quema.": "Without a consistent picture, no one knows for sure when and where fires burn.",
     "La solución": "The solution",
@@ -73,7 +71,7 @@
     "Respuesta a emergencias": "Emergency response",
     "Detecta al instante lo que se sale de lo habitual.": "Spot what is out of the ordinary instantly.",
     "Científicos": "Scientists",
-    "Patrones históricos comparables, de 2012 a 2026.": "Comparable historical patterns, from 2012 to 2026.",
+    "Patrones históricos comparables.": "Comparable historical patterns.",
     "Administradores de tierras": "Land managers",
     "Incendios forestales y quemas agrícolas en un mismo calendario.": "Wildfires and agricultural burns in one calendar.",
     "¿Dónde quieres mirar?": "Where do you want to look?",
@@ -82,8 +80,6 @@
     "Baja · Nominal · Alta": "Low · Nominal · High",
     "MALLA · 0,01°": "GRID · 0.01°",
     "0,01°": "0.01°",
-    "2012–2026": "2012–2026",
-    "2012 — 2026": "2012 — 2026",
 
     /* Mapa */
     "Mapa · MOVIRIS": "Map · MOVIRIS",
@@ -499,8 +495,8 @@
     } else {
       source = trimmed;
     }
-    const target = lang === 'en' && Object.prototype.hasOwnProperty.call(EN, source)
-      ? EN[source]
+    const target = lang === 'en' && Object.prototype.hasOwnProperty.call(EN, source.replace(/\s+/g, ' '))
+      ? EN[source.replace(/\s+/g, ' ')]
       : source;
     const start = raw.indexOf(trimmed);
     const output = raw.slice(0, start) + target + raw.slice(start + trimmed.length);
@@ -521,8 +517,8 @@
     if (raw !== trimmed && record[attr] && raw !== record[attr]) {
       source = trimmed;
     }
-    const target = lang === 'en' && Object.prototype.hasOwnProperty.call(EN, source)
-      ? EN[source]
+    const target = lang === 'en' && Object.prototype.hasOwnProperty.call(EN, source.replace(/\s+/g, ' '))
+      ? EN[source.replace(/\s+/g, ' ')]
       : source;
     const start = raw.indexOf(trimmed);
     const output = raw.slice(0, start) + target + raw.slice(start + trimmed.length);
