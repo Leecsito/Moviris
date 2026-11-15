@@ -472,6 +472,7 @@ Botón **Explain / Explicar** en los cinco gráficos del Dashboard y en los tres
 - **Contenido enviado:** `chart` (lista blanca), `title`, `filters` (área, confianza, métrica, período y selección), `lang` y un resumen compacto (`top_years`, `top_months`, medianas, índices o semanas; nunca la matriz completa).
 - **Respuesta:** texto plano de unas 100 palabras en el idioma activo; explica qué muestra el gráfico, qué dicen los datos y qué significan. El prompt prohíbe inventar cifras y usar Markdown.
 - **Backend:** usa `urllib.request` de la stdlib (sin dependencia nueva), `temperature: 0.2`, `max_tokens: 400`, timeout de 25 s y un máximo de 20 peticiones/minuto por IP.
+- **User-Agent propio:** envía `MOVIRIS/1.0 (+https://moviris.onrender.com)`. Sin esa cabecera, Cloudflare puede bloquear `urllib` con `403` aunque el token sea válido.
 - **Configuración:** `GROQ_LLM_TOKEN` y `GROQ_MODEL` viven solo en `.env`/entorno del servidor. Sin ambos, el endpoint responde `503` con un mensaje localizado; la clave nunca se envía al navegador.
 - **Errores:** `400` solicitud inválida, `413` resumen demasiado grande, `429` demasiadas peticiones, `502` fallo de Groq y `503` sin configurar. Los mensajes se devuelven en `en` o `es` según `lang`.
 - **Privacidad:** no se registra el token ni el cuerpo de la petición en los logs.
@@ -1451,6 +1452,8 @@ No se consultó ni modificó Turso durante la implementación del modo local ni 
 | `POST /api/explain` con `chart` inválido | `400` con `code: invalid` |
 | `POST /api/explain` con resumen > 14.000 caracteres | `413` |
 | `POST /api/explain` con Groq simulado | `200` con `text` y `lang` |
+| Groq real con `openai/gpt-oss-20b` | `200` en EN y ES; respuesta completa de ~90 palabras |
+| Groq con `urllib` sin User-Agent propio | `403` de Cloudflare; se añadió `MOVIRIS/1.0` y volvió a `200` |
 | `python -m unittest discover -s tests -v` | 4 pruebas OK |
 | `node --check` en `i18n.js`, `explain.js` y scripts de página | Sin errores de sintaxis |
 
