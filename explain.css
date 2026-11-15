@@ -33,6 +33,12 @@
   position: relative;
 }
 
+/* En el calendario, la columna de la matriz no debe estirarse hasta la
+   altura de la lista de períodos: eso empujaba su botón Explain muy abajo. */
+.col-main {
+  align-self: start;
+}
+
 .chart,
 .col-main,
 .side-block {

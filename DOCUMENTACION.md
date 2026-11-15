@@ -474,6 +474,7 @@ Botón **Explain / Explicar** en los cinco gráficos del Dashboard y en los tres
 - **Backend:** usa `urllib.request` de la stdlib (sin dependencia nueva), `temperature: 0.2`, `max_tokens: 400`, timeout de 25 s y un máximo de 20 peticiones/minuto por IP.
 - **User-Agent propio:** envía `MOVIRIS/1.0 (+https://moviris.onrender.com)`. Sin esa cabecera, Cloudflare puede bloquear `urllib` con `403` aunque el token sea válido.
 - **Configuración:** `GROQ_LLM_TOKEN` y `GROQ_MODEL` viven solo en `.env`/entorno del servidor. Sin ambos, el endpoint responde `503` con un mensaje localizado; la clave nunca se envía al navegador.
+- **Calendario:** la columna de la matriz usa `align-self: start` para que el botón Explain quede junto a la matriz y no al fondo de la fila estirada por la lista de períodos.
 - **Errores:** `400` solicitud inválida, `413` resumen demasiado grande, `429` demasiadas peticiones, `502` fallo de Groq y `503` sin configurar. Los mensajes se devuelven en `en` o `es` según `lang`.
 - **Privacidad:** no se registra el token ni el cuerpo de la petición en los logs.
 
