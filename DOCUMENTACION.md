@@ -859,7 +859,9 @@ confidence_max, sensors, status, z_score, is_nrt
 - `TURSO_ENABLED=true` lee de Turso; si la conexión falla → `503`.
 - Sin datos en el modo activo → `503`.
 - Parámetros inválidos → `400` con `{ "error": "..." }`.
-- El CSV de un área amplia puede ser grande (el ejemplo de Ecuador completo superó los 19 MB); se transmite por bloques de 5.000 filas.
+- `/api/mapa/cells` aplica el `LIMIT` en SQL (`ORDER BY days DESC, detections DESC`) y calcula el resumen con una subconsulta agregada. No materializa todas las celdas del área: con Brasil global hay más de un millón de celdas y antes el proceso superaba la memoria de Render.
+- `/api/mapa/csv` mantiene el streaming en modo local. En modo Turso, `libsql-client` devuelve el resultado completo en memoria, así que el endpoint rechaza con `413` los rangos que superan **150.000 filas**; hay que reducir el área o las fechas.
+- El CSV de un área amplia puede ser grande (el ejemplo de Ecuador completo superó los 19 MB); se transmite por bloques de 5.000 filas en modo local.
 
 ### I. API del calendario (blueprint `calendario`)
 
@@ -1486,7 +1488,7 @@ No se consultó ni modificó Turso durante la implementación del modo local ni 
 19. **Dashboard implementado:** `/dashboard/` tiene KPIs, gráficos y `/api/dashboard/summary`; reutiliza `_connect()` del mapa y lee el staging local o Turso. El CSV de celdas se sigue descargando desde `/api/mapa/csv`.
 20. **Mapa, calendario y dashboard leen Turso:** `_connect()` devuelve `TursoConnection` cuando `TURSO_ENABLED=true`, con un adaptador de cursor compatible con `sqlite3`. Las consultas son de solo lectura; si Turso falla, la API responde `503`. El staging local sigue siendo necesario para ejecutar el ETL.
 21. **Dependencia de CDN y teselas:** Leaflet y OpenStreetMap se cargan desde Internet. OpenStreetMap no requiere key, pero su infraestructura es financiada por donaciones y pide tráfico moderado; para producción con alto tráfico conviene una key gratuita de CARTO, otro proveedor o teselas propias. Las celdas y la API siguen funcionando sin cambiar el blueprint.
-22. **Límites del mapa:** `/api/mapa/cells` envía hasta 20.000 celdas por defecto (máximo 30.000) y el CSV puede ser grande; para áreas continentales conviene filtrar fechas o confianza.
+22. **Límites del mapa:** `/api/mapa/cells` envía hasta 20.000 celdas por defecto (máximo 30.000), pero el `LIMIT` se aplica en SQL y el resumen se calcula aparte para no cargar todas las celdas en memoria. El CSV en modo Turso está limitado a 150.000 filas; para áreas continentales conviene filtrar fechas o confianza.
 23. **Responsive del mapa:** el breakpoint de 900 px apila mapa y panel, y el de 600 px ajusta controles y altura. El mapa depende de `map.invalidateSize()` (ResizeObserver/orientationchange); si se agrega otro contenedor o un cambio de layout, hay que conservar esa llamada.
 24. **Responsive del calendario:** la matriz año × mes no cabe en 390 px por diseño. Se resuelve con scroll interno en `.matrix-wrap` y `min-width: 0` en las columnas; si se cambia la estructura de `.cols`, hay que conservar ambas reglas para no desbordar la página.
 25. **CSV del calendario:** el botón de descarga usa `/api/mapa/csv`; si el mapa cambia de endpoint o de parámetros, hay que actualizar el calendario. El calendario no tiene exportación propia.
