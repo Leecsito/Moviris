@@ -3,7 +3,7 @@
    Indicadores, actividad por año, anomalías, estacionalidad y comparación
    entre detecciones y celdas-día (armonización de sensores).
 
-   Lee el área de interés de la URL o de localStorage['moviris.aoi'], que
+   Lee el área de interés de la URL o de localStorage['moviris.aoi.v2'], que
    guarda la pestaña Mapa. Gráficos con Chart.js (CDN).
    ========================================================================== */
 
@@ -14,9 +14,9 @@
   const fmt = new Intl.NumberFormat('es-EC');
   const fmtDec = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 1 });
   const fmtCoord = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 3 });
-  const STORE_KEY = 'moviris.aoi';
+  const STORE_KEY = 'moviris.aoi.v2';
 
-  const DEFAULT_AOI = { south: -5.01, north: 1.45, west: -81.1, east: -75.2 };
+  const DEFAULT_AOI = { south: -85, north: 85, west: -180, east: 180 };
   const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
     'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -128,7 +128,7 @@
     const a = state.aoi;
     $('aoi-text').textContent =
       `Lat ${fmtCoord.format(a.south)} a ${fmtCoord.format(a.north)} · Lon ${fmtCoord.format(a.west)} a ${fmtCoord.format(a.east)}` +
-      (state.usingDefault ? ' · Zona por defecto (Ecuador continental)' : '');
+      (state.usingDefault ? ' · Vista mundial (por defecto)' : '');
   }
 
   // -------------------------------------------------------------------------

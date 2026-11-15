@@ -37,6 +37,11 @@ STATIC_FILES = {"style.css", "script.js"}
 _MATRIX_CACHE = TTLCache(ttl=300, maxsize=32)
 _MONTH_CACHE = TTLCache(ttl=300, maxsize=64)
 
+
+def _no_store(response):
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 AREA = "cell_lat BETWEEN ? AND ? AND cell_lon BETWEEN ? AND ? AND confidence_max >= ?"
 # celdas-día activas, detecciones, celdas-día críticas, celdas-día inusuales
 METRICS = "COUNT(*), SUM(detections), SUM(status = 'critical'), SUM(status = 'unusual')"
@@ -54,14 +59,14 @@ def _handle_api_error(err):
 @bp.get("/calendario/")
 @bp.get("/calendario/index.html")
 def page():
-    return send_from_directory(COMPONENT_DIR, "index.html")
+    return _no_store(send_from_directory(COMPONENT_DIR, "index.html"))
 
 
 @bp.get("/calendario/<path:filename>")
 def static_file(filename):
     if filename not in STATIC_FILES:  # calendario.py nunca se expone
         abort(404)
-    return send_from_directory(COMPONENT_DIR, filename)
+    return _no_store(send_from_directory(COMPONENT_DIR, filename))
 
 
 # ---------------------------------------------------------------- utilidades

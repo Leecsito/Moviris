@@ -3,7 +3,7 @@
    Matriz año × mes con rampa de color, mes actual frente a la mediana,
    períodos críticos y detalle diario del mes elegido.
 
-   Lee el área de interés de la URL o de localStorage['moviris.aoi'], que
+   Lee el área de interés de la URL o de localStorage['moviris.aoi.v2'], que
    guarda la pestaña Mapa.
    ========================================================================== */
 
@@ -14,9 +14,9 @@
   const fmt = new Intl.NumberFormat('es-EC');
   const fmtDec = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 1 });
   const fmtCoord = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 3 });
-  const STORE_KEY = 'moviris.aoi';
+  const STORE_KEY = 'moviris.aoi.v2';
 
-  const DEFAULT_AOI = { south: -5.01, north: 1.45, west: -81.1, east: -75.2 };
+  const DEFAULT_AOI = { south: -85, north: 85, west: -180, east: 180 };
   const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
     'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -116,7 +116,7 @@
     const a = state.aoi;
     $('aoi-text').textContent =
       `Lat ${round3(a.south)} a ${round3(a.north)} · Lon ${round3(a.west)} a ${round3(a.east)}` +
-      (state.usingDefault ? ' · Zona por defecto (Ecuador continental)' : '');
+      (state.usingDefault ? ' · Vista mundial (por defecto)' : '');
   }
 
   // -------------------------------------------------------------------------

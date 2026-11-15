@@ -345,6 +345,7 @@ app.register_blueprint(mapa_bp)
 - Con `TURSO_ENABLED=true` lee directamente de Turso mediante `TursoConnection` (`backend/db.py`).
 - Si no hay datos en el modo activo o Turso no responde, responde `503`.
 - El mapa no usa el header como HTML copiado: monta `#site-header` y carga `/header/*`, igual que las demás páginas.
+- **Vista inicial mundial:** el mapa arranca en el mundo (`[-85, 85, -180, 180]`), no en Ecuador. La clave compartida es `localStorage['moviris.aoi.v2']`; las zonas rápidas son Mundo, América del Norte, América Central y Caribe, América del Sur, Europa, África, Asia y Oceanía.
 - **Responsive:** a partir de 900 px el mapa pasa arriba y el panel debajo; a partir de 600 px los controles ocupan el ancho completo y el mapa mide 55dvh (mínimo 300 px). `script.js` usa `ResizeObserver` + `orientationchange` para llamar a `map.invalidateSize()`, de modo que Leaflet se adapta al cambiar el layout.
 - Leaflet 1.9.4 se carga desde CDN y las teselas base son de **OpenStreetMap**, sin API key. OpenStreetMap es gratuito y financiado por donaciones; su política pide tráfico moderado y mantener la atribución visible. Para una demo local es suficiente; si el tráfico crece, conviene una key gratuita de CARTO, otro proveedor o teselas propias.
 - **Cambio temporal de fondo:** antes se usaban teselas de CARTO, que desde el 25/09/2026 muestran “API KEY REQUIRED” si no se configura una key gratuita. Se cambió a OpenStreetMap para poder probar el mapa sin registro; el resto del diseño y del texto no cambió. Para volver a CARTO basta añadir `?key=TU_KEY` a la URL de teselas.
@@ -357,7 +358,7 @@ El calendario es un componente separado con su propio blueprint de Flask. Reutil
 |---|---|
 | `index.html` | Página: cabecera, controles, KPIs, matriz año × mes, períodos críticos y detalle diario |
 | `style.css` | Estilos de la matriz, panel lateral y responsive |
-| `script.js` | Carga matriz/mes, lee y guarda `localStorage['moviris.aoi']`, descarga CSV |
+| `script.js` | Carga matriz/mes, lee y guarda `localStorage['moviris.aoi.v2']`, descarga CSV |
 | `calendario.py` | Blueprint `calendario`: página, assets y API de consulta |
 
 #### Registro del blueprint
@@ -385,7 +386,7 @@ app.register_blueprint(calendario_bp)
 - Con `TURSO_ENABLED=true` lee directamente de Turso.
 - Si no hay datos en el modo activo o Turso no responde, responde `503`.
 - El calendario monta `#site-header` y carga `/header/*`; no copia el HTML del header.
-- **Área de interés:** la lee de la URL o de `localStorage['moviris.aoi']` (la misma clave que usa el mapa) y la guarda al cambiar `conf`. Si el usuario viene del mapa, conserva la zona.
+- **Área de interés:** la lee de la URL o de `localStorage['moviris.aoi.v2']` (la misma clave que usa el mapa) y la guarda al cambiar `conf`. Si el usuario viene del mapa, conserva la zona; sin área guardada usa la vista mundial.
 - **CSV:** el botón **Descargar CSV** llama a `/api/mapa/csv` con el área y el rango visible; no hay endpoint CSV propio en el calendario.
 - **Responsive:** por debajo de 960 px la matriz y el panel lateral pasan a una columna; por debajo de 600 px los controles ocupan el ancho completo. La matriz se desplaza horizontalmente dentro de `.matrix-wrap` (`min-width: 0` en las columnas) sin desbordar la página.
 
@@ -393,7 +394,7 @@ app.register_blueprint(calendario_bp)
 
 El Dashboard muestra la actividad histórica del área de interés: indicadores,
 actividad por año, anomalías, estacionalidad, cobertura MODIS/VIIRS y descargas
-CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi']`).
+CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi.v2']`).
 
 | Archivo | Rol |
 |---|---|
@@ -1160,7 +1161,7 @@ modo anteriores en memoria.
 ### G. Uso del calendario
 
 1. Abre `/calendario/`; el header marca **Calendario**.
-2. La página usa el área de interés guardada por el mapa (`localStorage['moviris.aoi']`); si no existe, usa el recuadro por defecto de Ecuador.
+2. La página usa el área de interés guardada por el mapa (`localStorage['moviris.aoi.v2']`); si no existe, usa la vista mundial por defecto.
 3. Cambia **Medir** y **Confianza mínima** para recalcular la matriz y el detalle.
 4. Revisa los KPIs: año activo, mes del año activo, mes más intenso y la comparación del período actual con la mediana.
 5. Pulsa una celda de la matriz para abrir el detalle diario de ese mes.
@@ -1309,7 +1310,7 @@ Se arrancó el backend con credenciales de Turso inválidas y `TURSO_ENABLED=fal
 | `/api/calendario/matrix` sin área | `400` con `error` |
 | Página del calendario | KPIs cargados (`2024`, `Noviembre`, `Noviembre 2020`), 180 celdas de matriz y detalle diario |
 | Consola | Sin errores propios del componente |
-| Área de interés | Se lee y guarda en `localStorage['moviris.aoi']`, la misma clave del mapa |
+| Área de interés | Se lee y guarda en `localStorage['moviris.aoi.v2']`, la misma clave del mapa |
 | CSV | El botón descarga desde `/api/mapa/csv`, no desde un endpoint propio |
 | Responsive 960 px | Matriz y panel lateral en una columna |
 | Responsive 390 px | Matriz con scroll interno; `scrollWidth = innerWidth`, sin overflow de página |

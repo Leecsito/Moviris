@@ -4,7 +4,7 @@
    celdas de focos y descarga CSV.
 
    Estado compartido con Calendario y Dashboard:
-     localStorage['moviris.aoi'] = { south, north, west, east, from, to, conf }
+     localStorage['moviris.aoi.v2'] = { south, north, west, east, from, to, conf }
    ========================================================================== */
 
 (() => {
@@ -12,14 +12,20 @@
 
   const $ = (id) => document.getElementById(id);
   const fmt = new Intl.NumberFormat('es-EC');
-  const STORE_KEY = 'moviris.aoi';
+  const STORE_KEY = 'moviris.aoi.v2';
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-  const DEFAULT_AOI = { south: -5.01, north: 1.45, west: -81.1, east: -75.2 };
+  // Vista mundial por defecto. Los límites ±85° evitan los extremos de Mercator.
+  const DEFAULT_AOI = { south: -85, north: 85, west: -180, east: 180 };
   const PRESETS = {
-    ecuador: DEFAULT_AOI,
-    galapagos: { south: -1.6, north: 1.0, west: -92.2, east: -89.0 },
-    chimborazo: { south: -2.5, north: -1.55, west: -79.3, east: -78.5 },
+    mundo: DEFAULT_AOI,
+    america_norte: { south: 7, north: 83, west: -170, east: -50 },
+    america_central: { south: 6, north: 24, west: -118, east: -58 },
+    america_sur: { south: -56, north: 13, west: -82, east: -34 },
+    europa: { south: 34, north: 72, west: -25, east: 45 },
+    africa: { south: -35, north: 38, west: -20, east: 55 },
+    asia: { south: -11, north: 82, west: 25, east: 180 },
+    oceania: { south: -48, north: 0, west: 110, east: 180 },
   };
 
   const STATE_COLORS = { critical: '#A94438', unusual: '#B58A2E', normal: '#637545' };
@@ -117,7 +123,7 @@
   // Mapa
   // -------------------------------------------------------------------------
 
-  const map = L.map('map', { preferCanvas: true, minZoom: 3 }).setView([-1.5, -78.5], 7);
+  const map = L.map('map', { preferCanvas: true, minZoom: 2 }).setView([20, 0], 2);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,

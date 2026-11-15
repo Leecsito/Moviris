@@ -52,12 +52,17 @@ _META_CACHE = TTLCache(ttl=300, maxsize=2)
 _CELLS_CACHE = TTLCache(ttl=300, maxsize=12)
 
 
+def _no_store(response):
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 # ---------------------------------------------------------------- páginas
 @bp.get("/mapa")
 @bp.get("/mapa/")
 @bp.get("/mapa/index.html")
 def page():
-    return send_from_directory(COMPONENT_DIR, "index.html")
+    return _no_store(send_from_directory(COMPONENT_DIR, "index.html"))
 
 
 @bp.get("/mapa/<path:filename>")
@@ -65,7 +70,7 @@ def static_file(filename):
     # Solo se sirven los archivos del front; mapa.py nunca se expone
     if filename not in STATIC_FILES:
         abort(404)
-    return send_from_directory(COMPONENT_DIR, filename)
+    return _no_store(send_from_directory(COMPONENT_DIR, filename))
 
 
 # ---------------------------------------------------------------- utilidades
