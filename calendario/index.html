@@ -8,6 +8,8 @@
   <link rel="icon" href="/ico.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/header/style.css">
   <link rel="stylesheet" href="/calendario/style.css">
+  <link rel="stylesheet" href="/explain.css">
+  <script src="/i18n.js"></script>
 </head>
 <body>
   <div id="site-header"></div>
@@ -62,17 +64,20 @@
         <div class="matrix-wrap" id="matrix-wrap" tabindex="0" aria-label="Calendario de años por mes"></div>
         <ul class="legend" id="legend" aria-label="Leyenda"></ul>
         <p class="note">Los meses con borde punteado están incompletos. Elige un mes para ver sus días.</p>
+        <button class="explain-btn" type="button" data-explain="calendar_matrix" aria-label="Explicar este gráfico">Explicar</button>
       </div>
 
       <aside class="col-side">
         <section class="side-block">
           <h2 class="label"><span>02</span>Este mes frente a la mediana</h2>
           <div id="compare" aria-live="polite"></div>
+          <button class="explain-btn" type="button" data-explain="calendar_compare" aria-label="Explicar este gráfico">Explicar</button>
         </section>
 
         <section class="side-block">
           <h2 class="label"><span>03</span>Períodos críticos</h2>
           <ol class="weeks" id="weeks"></ol>
+          <button class="explain-btn" type="button" data-explain="calendar_weeks" aria-label="Explicar este gráfico">Explicar</button>
         </section>
       </aside>
     </section>
@@ -92,6 +97,7 @@
     </p>
   </main>
 
+  <script src="/explain.js"></script>
   <script src="/header/script.js"></script>
   <script src="/calendario/script.js"></script>
 </body>

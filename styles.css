@@ -4,6 +4,31 @@
    Paleta base: #EBEBD8 · #637545 · #455230 · #9BA685
    ========================================================================== */
 
+.welcome-lang {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 20;
+}
+
+.welcome-lang select {
+  appearance: none;
+  background: rgba(19, 26, 14, 0.65);
+  color: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 5px 7px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.welcome-lang select option {
+  background: var(--cream);
+  color: var(--bg);
+}
+
 :root {
   --bg: #131A0E;
   --cream: #EBEBD8;

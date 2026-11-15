@@ -43,6 +43,7 @@ from etl.etl import DEFAULT_STAGING, ROOT
 from mapa.mapa import bp as mapa_bp
 from calendario.calendario import bp as calendario_bp
 from dashboard.dashboard import bp as dashboard_bp
+from backend.explain import bp as explain_bp
 
 ETL_DIR = ROOT / "etl"
 INICIO_DIR = ROOT / "inicio"
@@ -306,6 +307,7 @@ app.json.ensure_ascii = False
 app.register_blueprint(mapa_bp)
 app.register_blueprint(calendario_bp)
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(explain_bp)
 
 job_manager = JobManager()
 
@@ -397,6 +399,21 @@ def inicio_styles():
 @app.get("/inicio/script.js")
 def inicio_script():
     return _send_inicio("script.js")
+
+
+@app.get("/i18n.js")
+def i18n_script():
+    return _send_root("i18n.js")
+
+
+@app.get("/explain.js")
+def explain_script():
+    return _send_root("explain.js")
+
+
+@app.get("/explain.css")
+def explain_styles():
+    return _send_root("explain.css")
 
 
 @app.get("/ico.svg")

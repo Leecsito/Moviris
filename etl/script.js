@@ -52,10 +52,16 @@ const state = {
   mode: 'local',
 };
 
+const I18N = window.MovirisI18n;
+const t = (text, vars) => (I18N ? I18N.t(text, vars) : text);
+const applyI18n = () => {
+  if (I18N) I18N.apply(document.documentElement);
+};
+
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
-const numberFmt = new Intl.NumberFormat('es-EC');
+const numberFmt = { format: (value) => (I18N ? I18N.number(value) : String(value)) };
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ESCAPES[char]);
 
@@ -85,7 +91,7 @@ function formatSize(bytes) {
     size /= 1024;
     index += 1;
   }
-  return `${size.toFixed(1)} ${units[index]}`;
+  return `${I18N.number(size, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${units[index]}`;
 }
 
 function formatDuration(seconds) {
@@ -101,7 +107,9 @@ function formatDuration(seconds) {
 
 function formatCsvNames(names) {
   const shown = names.slice(0, 3).join(', ');
-  return names.length > 3 ? `${shown} +${names.length - 3} más` : shown;
+  return names.length > 3
+    ? `${shown} +${t('{n} más', { n: names.length - 3 })}`
+    : shown;
 }
 
 function makeKey() {
@@ -110,7 +118,14 @@ function makeKey() {
 }
 
 function formatApiError(error) {
-  if (!error) return 'Error desconocido.';
+  if (!error) return t('Error desconocido.');
+  if (I18N && I18N.lang === 'en') {
+    const message = String(error.message || '').trim();
+    const translated = message ? I18N.t(message) : '';
+    return translated && translated !== message
+      ? translated
+      : t('No se pudo completar la operación.');
+  }
   const parts = [error.message, error.detail, error.hint].filter(Boolean);
   if (Array.isArray(error.payload?.rejected)) {
     parts.push(...error.payload.rejected.slice(0, 3));
@@ -146,6 +161,7 @@ function setUploadMessage(message, type = '') {
   element.textContent = message || '';
   element.classList.toggle('is-error', type === 'error');
   element.classList.toggle('is-success', type === 'success');
+  applyI18n();
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +174,7 @@ function setConnection(mode, text, title) {
   element.dataset.state = mode;
   element.title = title || text;
   setText('#connectionText', text);
+  applyI18n();
 }
 
 async function loadHealth() {
@@ -176,6 +193,7 @@ async function loadHealth() {
           : 'Modo local. Aún no hay un staging disponible; ejecuta el ETL.'
       );
       setText('#footerStatus', 'Modo local');
+      applyI18n();
       return;
     }
 
@@ -195,9 +213,11 @@ async function loadHealth() {
       );
       setText('#footerStatus', 'Turso sin conexión');
     }
+    applyI18n();
   } catch (error) {
     setConnection('error', 'Sin conexión', 'No se pudo consultar el estado del servidor.');
     setText('#footerStatus', 'Sin conexión');
+    applyI18n();
   }
 }
 
@@ -215,12 +235,15 @@ function renderFiles() {
     list.innerHTML = '';
     empty?.classList.remove('is-hidden');
     if (count) count.textContent = '0 archivos';
+    applyI18n();
     return;
   }
 
   empty?.classList.add('is-hidden');
   if (count) {
-    count.textContent = `${state.files.length} archivo${state.files.length === 1 ? '' : 's'}`;
+    count.textContent = state.files.length === 1
+      ? t('{n} archivo', { n: state.files.length })
+      : t('{n} archivos', { n: state.files.length });
   }
 
   list.innerHTML = state.files
@@ -257,10 +280,11 @@ function renderFiles() {
           <span class="file-status ${statusClass}">${statusLabel}</span>
           <button class="remove-button" type="button" data-key="${esc(
             entry.key
-          )}" ${disabled ? 'disabled' : ''} aria-label="Quitar ${esc(entry.name)}">Quitar</button>
+          )}" ${disabled ? 'disabled' : ''} aria-label="${esc(t('Quitar'))} ${esc(entry.name)}">Quitar</button>
         </li>`;
     })
     .join('');
+  applyI18n();
 }
 
 function updateRunButton() {
@@ -276,6 +300,7 @@ function updateRunButton() {
   if (dropzone) {
     dropzone.classList.toggle('is-uploading', state.running || state.uploading);
   }
+  applyI18n();
 }
 
 async function uploadOne(entry) {
@@ -284,7 +309,7 @@ async function uploadOne(entry) {
   try {
     const data = await api(API.upload, { method: 'POST', body: form });
     const batch = data?.batch;
-    if (!batch) throw new Error('El servidor no devolvió el lote de archivos.');
+    if (!batch) throw new Error(t('El servidor no devolvió el lote de archivos.'));
     entry.uploadId = batch.id || data.upload_id || null;
     entry.status = 'ready';
     entry.sizeLabel = batch.size_label || entry.sizeLabel;
@@ -296,7 +321,10 @@ async function uploadOne(entry) {
       batch.files.every((file) => file.kind === 'nrt');
     entry.error = '';
     if (Array.isArray(data.rejected) && data.rejected.length) {
-      entry.error = `${data.rejected.length} archivo(s) descartado(s): ${data.rejected[0]}`;
+      entry.error = t('{n} archivo(s) descartado(s): {detail}', {
+        n: data.rejected.length,
+        detail: data.rejected[0],
+      });
     }
   } catch (error) {
     entry.status = 'error';
@@ -322,7 +350,7 @@ async function uploadFiles(selected) {
       (entry) => entry.name === file.name && entry.size === file.size
     );
     if (duplicate) {
-      setUploadMessage(`“${file.name}” ya está en la lista.`, 'error');
+      setUploadMessage(t('{name} ya está en la lista.', { name: file.name }), 'error');
       continue;
     }
     const entry = {
@@ -355,7 +383,11 @@ async function uploadFiles(selected) {
   let index = 0;
   for (const entry of entries) {
     index += 1;
-    setUploadMessage(`Subiendo ${index} de ${entries.length}: ${entry.name}`, '');
+    setUploadMessage(t('Subiendo {index} de {total}: {name}', {
+      index,
+      total: entries.length,
+      name: entry.name,
+    }), '');
     await uploadOne(entry);
   }
 
@@ -368,13 +400,16 @@ async function uploadFiles(selected) {
   const notes = entries.filter((entry) => entry.status === 'ready' && entry.error);
   if (failed) {
     setUploadMessage(
-      `${ready} listo(s), ${failed} con error. Revisa el detalle en la lista.`,
+      t('{ready} listo(s), {failed} con error. Revisa el detalle en la lista.', {
+        ready,
+        failed,
+      }),
       'error'
     );
   } else if (notes.length) {
-    setUploadMessage(`${ready} listo(s). ${notes[0].error}`, 'error');
+    setUploadMessage(t('{ready} listo(s). {note}', { ready, note: notes[0].error }), 'error');
   } else {
-    setUploadMessage(`${ready} archivo(s) listos para procesar.`, 'success');
+    setUploadMessage(t('{ready} archivo(s) listos para procesar.', { ready }), 'success');
   }
 }
 
@@ -445,13 +480,13 @@ function updateSteps(job, percent) {
     if (done) {
       if (loadSkipped && index === STEPS.length - 1) {
         item.classList.add('is-skipped');
-        item.title = 'Turso está desactivado: el resultado quedó en el staging local.';
+        item.title = t('Turso está desactivado: el resultado quedó en el staging local.');
       } else {
         item.classList.add('is-done');
       }
       const label = item.querySelector('span:last-child');
       if (label && index === STEPS.length - 1) {
-        label.textContent = loadSkipped ? 'Load (omitido)' : 'Load';
+        label.textContent = loadSkipped ? t('Load (omitido)') : 'Load';
       }
       return;
     }
@@ -462,7 +497,7 @@ function updateSteps(job, percent) {
 
 function renderJob(job) {
   const percent = Math.max(0, Math.min(100, Number(job.percent) || 0));
-  setText('#stageLabel', job.stage || 'Procesando…');
+  setText('#stageLabel', t(job.stage || 'Procesando…'));
   setText('#percentLabel', `${Math.round(percent)}%`);
   setText('#stageMessage', job.message || '');
 
@@ -473,8 +508,14 @@ function renderJob(job) {
 
   updateSteps(job, percent);
   if (job.status === 'error') {
-    showError(job.error || 'El proceso terminó con un error.');
+    if (I18N && I18N.lang === 'en') {
+      console.error(job.error);
+      showError(t('El proceso terminó con un error.'));
+    } else {
+      showError(job.error || t('El proceso terminó con un error.'));
+    }
   }
+  applyI18n();
 }
 
 function resetProgress() {
@@ -490,6 +531,7 @@ function resetProgress() {
   });
   const loadLabel = $('#steps li[data-step="load"] span:last-child');
   if (loadLabel) loadLabel.textContent = 'Load';
+  applyI18n();
 }
 
 function showProgress(visible) {
@@ -516,6 +558,7 @@ function showSummary(job) {
     }
   }
   $('#summaryPanel')?.classList.remove('is-hidden');
+  applyI18n();
 }
 
 function hideSummary() {
@@ -557,6 +600,7 @@ function showError(message) {
   }
   $('#errorBox')?.classList.remove('is-hidden');
   hideSummary();
+  applyI18n();
 }
 
 function hideError() {
@@ -583,7 +627,7 @@ async function pollJob() {
     const data = await api(`${API.status}?job_id=${encodeURIComponent(state.jobId)}`);
     state.pollFailures = 0;
     const job = data?.job;
-    if (!job) throw new Error('El servidor no encontró el trabajo.');
+    if (!job) throw new Error(t('El servidor no encontró el trabajo.'));
 
     renderJob(job);
 
@@ -594,8 +638,11 @@ async function pollJob() {
       updateRunButton();
       if (job.status === 'done') {
         showSummary(job);
+      } else if (I18N && I18N.lang === 'en') {
+        console.error(job.error);
+        showError(t('El proceso terminó con un error.'));
       } else {
-        showError(job.error || 'El proceso terminó con un error.');
+        showError(job.error || t('El proceso terminó con un error.'));
       }
       await loadHealth();
     }
@@ -606,7 +653,7 @@ async function pollJob() {
       state.running = false;
       renderFiles();
       updateRunButton();
-      showError('Se perdió la conexión con el servidor. Recarga la página.');
+      showError(t('Se perdió la conexión con el servidor. Recarga la página.'));
     }
   }
 }
@@ -644,7 +691,7 @@ async function runETL() {
         push: true,
       }),
     });
-    if (!data?.job?.id) throw new Error('El servidor no devolvió el trabajo.');
+    if (!data?.job?.id) throw new Error(t('El servidor no devolvió el trabajo.'));
     state.jobId = data.job.id;
     renderJob(data.job);
     startPolling();

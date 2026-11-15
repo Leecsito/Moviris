@@ -11,23 +11,24 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const fmt = new Intl.NumberFormat('es-EC');
-  const fmtDec = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 1 });
-  const fmtCoord = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 3 });
+  const I18N = window.MovirisI18n;
+  const t = (text, vars) => I18N.t(text, vars);
+  const fmt = { format: (value) => I18N.number(value) };
+  const fmtDec = { format: (value) => I18N.decimal(value) };
+  const fmtCoord = { format: (value) => I18N.coordinate(value) };
   const STORE_KEY = 'moviris.aoi.v2';
 
   const DEFAULT_AOI = { south: -85, north: 85, west: -180, east: 180 };
-  const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
-    'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const MONTHS = Array.from({ length: 12 }, (_, index) => I18N.monthName(index));
+  const MONTHS_SHORT = Array.from({ length: 12 }, (_, index) => I18N.monthName(index, true));
+  const WEEKDAYS = Array.from({ length: 7 }, (_, index) => I18N.weekdayName(index));
 
   // pos = posición de la métrica dentro de los valores devueltos por la API
   const METRICS = {
-    cell_days: { pos: 0, label: 'celdas-día activas' },
-    detections: { pos: 1, label: 'detecciones' },
-    critical: { pos: 2, label: 'celdas-día críticas' },
-    unusual: { pos: 3, label: 'celdas-día inusuales' },
+    cell_days: { pos: 0, label: t('celdas-día activas') },
+    detections: { pos: 1, label: t('detecciones') },
+    critical: { pos: 2, label: t('celdas-día críticas') },
+    unusual: { pos: 3, label: t('celdas-día inusuales') },
   };
 
   // Rampa secuencial YlOrBr (ColorBrewer), apta para daltonismo
@@ -52,9 +53,8 @@
   const round3 = (v) => fmtCoord.format(v);
 
   function compact(n) {
-    if (n >= 10000) return `${Math.round(n / 1000)}k`;
-    if (n >= 1000) return `${(n / 1000).toFixed(1).replace('.', ',')}k`;
-    return String(n);
+    if (n >= 1000) return I18N.number(n, { notation: 'compact', maximumFractionDigits: 1 });
+    return fmt.format(n);
   }
 
   function setMsg(text, isError = false) {
@@ -116,7 +116,7 @@
     const a = state.aoi;
     $('aoi-text').textContent =
       `Lat ${round3(a.south)} a ${round3(a.north)} · Lon ${round3(a.west)} a ${round3(a.east)}` +
-      (state.usingDefault ? ' · Vista mundial (por defecto)' : '');
+      (state.usingDefault ? ' · ' + t('Vista mundial (por defecto)') : '');
   }
 
   // -------------------------------------------------------------------------
@@ -139,7 +139,7 @@
     const labels = Array.from({ length: n }, (_, i) => {
       if (n === 1) return fmt.format(v[0]);
       if (i === 0) return range(1, breaks[0]);
-      if (i === n - 1) return `más de ${fmt.format(breaks[n - 2])}`;
+      if (i === n - 1) return t('más de {value}', { value: fmt.format(breaks[n - 2]) });
       return range(breaks[i - 1] + 1, breaks[i]);
     });
     return { n, classOf, rampIndex, labels };
@@ -208,7 +208,7 @@
         const selected = state.sel && state.sel.y === y && state.sel.m === m;
         const classes = ['cell', p.cls, info.partial ? 'is-partial' : '', selected ? 'is-selected' : '']
           .filter(Boolean).join(' ');
-        const text = `${MONTHS[m - 1]} ${y}: ${fmt.format(v)} ${metricLabel()}${info.partial ? ' (mes incompleto)' : ''}`;
+        const text = `${MONTHS[m - 1]} ${y}: ${fmt.format(v)} ${metricLabel()}${info.partial ? ' ' + t('(mes incompleto)') : ''}`;
         cells.push(
           `<td><button class="${classes}" style="${p.style}" type="button" data-y="${y}" data-m="${m}" ` +
           `title="${text}" aria-label="${text}" aria-pressed="${selected ? 'true' : 'false'}">${compact(v)}</button></td>`
@@ -218,7 +218,7 @@
     });
 
     $('matrix-wrap').innerHTML =
-      `<table class="matrix"><thead><tr><th class="year" scope="col">Año</th>${head}<th scope="col">Total</th></tr></thead>` +
+      `<table class="matrix"><thead><tr><th class="year" scope="col">${t('Año')}</th>${head}<th scope="col">${t('Total')}</th></tr></thead>` +
       `<tbody>${rows.join('')}</tbody></table>`;
 
     renderLegend(scale);
@@ -226,7 +226,7 @@
   }
 
   function renderLegend(scale) {
-    const items = ['<li><span class="swatch" style="background:#F7F7EC"></span>Sin focos</li>'];
+    const items = [`<li><span class="swatch" style="background:#F7F7EC"></span>${t('Sin focos')}</li>`];
     if (scale) {
       for (let i = 0; i < scale.n; i += 1) {
         items.push(`<li><span class="swatch" style="background:${RAMP[scale.rampIndex(i)]}"></span>${scale.labels[i]}</li>`);
@@ -283,7 +283,7 @@
 
     if (!bestYear || bestYear.t === 0) {
       $('hl-year').textContent = '—';
-      $('hl-year-sub').textContent = 'Sin actividad en esta área';
+      $('hl-year-sub').textContent = t('Sin actividad en esta área');
       $('hl-month').textContent = '—';
       $('hl-month-sub').textContent = '';
       $('hl-peak').textContent = '—';
@@ -294,7 +294,7 @@
     $('hl-year').textContent = String(bestYear.y);
     $('hl-year-sub').textContent = `${fmt.format(bestYear.t)} ${label}`;
     $('hl-month').textContent = MONTHS[bestMonth];
-    $('hl-month-sub').textContent = `${fmt.format(perMonth[bestMonth])} ${label} en ${pool.length} ${pool.length === 1 ? 'año' : 'años'}`;
+    $('hl-month-sub').textContent = `${fmt.format(perMonth[bestMonth])} ${label} ${t('en')} ${pool.length} ${t(pool.length === 1 ? 'año' : 'años')}`;
     if (peak) {
       $('hl-peak').textContent = `${MONTHS[peak.m - 1]} ${peak.y}`;
       $('hl-peak-sub').textContent = `${fmt.format(peak.v)} ${label}`;
@@ -310,30 +310,40 @@
     const pos = METRICS[state.metric].pos;
     const value = cur.values[pos];
     const median = cur.median ? cur.median[pos] : null;
-    const span = cur.day === 1 ? 'día 1' : `días 1–${cur.day}`;
+    const span = cur.day === 1 ? t('día 1') : t('días 1–{day}', { day: cur.day });
     let html = `<p class="compare-title">${MONTHS[cur.month - 1]} ${cur.year}, ${span}</p>`;
 
     if (median === null) {
-      html += '<p class="compare-sub">Aún no hay años anteriores para comparar.</p>';
+      html += `<p class="compare-sub">${t('Aún no hay años anteriores para comparar.')}</p>`;
       $('compare').innerHTML = html;
       return;
     }
 
     const first = cur.years[0];
     const last = cur.years[cur.years.length - 1];
-    html += `<p class="compare-sub">Mediana del mismo tramo en ${cur.years.length} ${cur.years.length === 1 ? 'año' : 'años'} (${first}–${last}). Medida: ${metricLabel()}.</p>`;
+    html += `<p class="compare-sub">${t('Mediana del mismo tramo en {n} {years} ({first}–{last}). Medida: {metric}.', {
+      n: cur.years.length,
+      years: t(cur.years.length === 1 ? 'año' : 'años'),
+      first,
+      last,
+      metric: metricLabel(),
+    })}</p>`;
 
     const max = Math.max(value, median, 1);
     const bar = (name, v, extra) =>
       `<div class="bar-row"><span>${name}</span><div class="bar-track"><span class="bar-fill ${extra}" style="width:${(v / max) * 100}%"></span></div><strong>${fmtDec.format(v)}</strong></div>`;
-    html += bar('Este año', value, '') + bar('Mediana', median, 'is-median');
+    html += bar(t('Este año'), value, '') + bar(t('Mediana'), median, 'is-median');
 
     let delta;
     if (median > 0) {
       const pct = Math.round(((value - median) / median) * 100);
-      delta = pct === 0 ? 'Igual que la mediana.' : `${pct > 0 ? '+' : '−'}${Math.abs(pct)} % frente a la mediana.`;
+      delta = pct === 0
+        ? t('Igual que la mediana.')
+        : t('{sign}{pct} % frente a la mediana.', { sign: pct > 0 ? '+' : '−', pct: Math.abs(pct) });
     } else {
-      delta = value > 0 ? 'La mediana es 0: no hay referencia para comparar.' : 'Sin actividad, igual que la mediana.';
+      delta = value > 0
+        ? t('La mediana es 0: no hay referencia para comparar.')
+        : t('Sin actividad, igual que la mediana.');
     }
     html += `<p class="delta">${delta}</p>`;
     $('compare').innerHTML = html;
@@ -346,12 +356,14 @@
   function renderWeeks() {
     const weeks = state.data.weeks;
     if (!weeks.length) {
-      $('weeks').innerHTML = '<li><span>No hay semanas críticas en esta área.</span></li>';
+      $('weeks').innerHTML = `<li><span>${t('No hay semanas críticas en esta área.')}</span></li>`;
       return;
     }
     $('weeks').innerHTML = weeks.map((w) =>
-      `<li><strong>${w[0]} · semana ${w[1]}</strong>` +
-      `<span>${fmt.format(w[4])} celdas-día críticas · ${fmt.format(w[5])} inusuales · ${fmt.format(w[2])} activas</span></li>`
+      `<li><strong>${t('{year} · semana {week}', { year: w[0], week: w[1] })}</strong>` +
+      `<span>${t('{critical} celdas-día críticas · {unusual} inusuales · {active} activas', {
+        critical: fmt.format(w[4]), unusual: fmt.format(w[5]), active: fmt.format(w[2]),
+      })}</span></li>`
     ).join('');
   }
 
@@ -368,7 +380,8 @@
       state.monthData = data;
       renderMonth();
     } catch (error) {
-      if (token === monthToken) setMsg(error.message, true);
+      console.error(error);
+      if (token === monthToken) setMsg(t('No se pudieron cargar los datos.'), true);
     }
   }
 
@@ -396,14 +409,17 @@
     for (let day = 1; day <= daysInMonth; day += 1) {
       const date = `${y}-${pad(m)}-${pad(day)}`;
       if (date > d.max_date || date < d.min_date) {
-        parts.push(`<div class="day is-future" title="Sin datos"><span class="day-num">${day}</span><span class="day-val">·</span></div>`);
+        parts.push(`<div class="day is-future" title="${t('Sin datos')}"><span class="day-num">${day}</span><span class="day-val">·</span></div>`);
         continue;
       }
       const row = byDate.get(date) || [date, 0, 0, 0, 0];
       const v = row[1 + pos];
       const p = paint(scale, v);
-      const text = `${day} de ${MONTHS[m - 1].toLowerCase()}: ${fmt.format(row[1])} celdas-día activas, ` +
-        `${fmt.format(row[2])} detecciones, ${fmt.format(row[3])} críticas, ${fmt.format(row[4])} inusuales`;
+      const dateLabel = I18N.lang === 'en'
+        ? `${MONTHS[m - 1]} ${day}`
+        : `${day} ${t('de')} ${MONTHS[m - 1].toLowerCase()}`;
+      const text = `${dateLabel}: ${fmt.format(row[1])} ${t('celdas-día activas')}, ` +
+        `${fmt.format(row[2])} ${t('detecciones')}, ${fmt.format(row[3])} ${t('críticas')}, ${fmt.format(row[4])} ${t('inusuales')}`;
       const dot = row[3] > 0 ? '<span class="day-dot" aria-hidden="true"></span>' : '';
       parts.push(
         `<div class="day ${p.cls}" style="${p.style}" title="${text}" aria-label="${text}">` +
@@ -423,12 +439,104 @@
     renderWeeks();
   }
 
+  // -------------------------------------------------------------------------
+  // Explain: resumen compacto para Groq (sin la matriz completa)
+  // -------------------------------------------------------------------------
+
+  function explainFilters() {
+    return {
+      area: {
+        south: state.aoi.south,
+        north: state.aoi.north,
+        west: state.aoi.west,
+        east: state.aoi.east,
+      },
+      confidence: state.conf,
+      metric: metricLabel(),
+      period: { min_date: state.data.min_date, max_date: state.data.max_date },
+      selected: state.sel,
+    };
+  }
+
+  function buildExplain(key) {
+    const d = state.data;
+    if (!d) return null;
+    let summary;
+    let title;
+
+    if (key === 'calendar_matrix') {
+      const yearTotals = new Map();
+      for (const row of d.months) {
+        yearTotals.set(row[0], (yearTotals.get(row[0]) || 0) + metricValue(row));
+      }
+      const topYears = [...yearTotals.entries()]
+        .map(([year, value]) => ({ year, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+      const topMonths = d.months
+        .map((row) => ({ year: row[0], month: MONTHS[row[1] - 1], value: metricValue(row) }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+      title = t('Año × mes');
+      summary = {
+        metric: metricLabel(),
+        top_years: topYears,
+        top_months: topMonths,
+        selected: state.sel,
+      };
+    } else if (key === 'calendar_compare') {
+      const current = d.current;
+      const pos = METRICS[state.metric].pos;
+      title = t('Este mes frente a la mediana');
+      summary = {
+        metric: metricLabel(),
+        year: current.year,
+        month: MONTHS[current.month - 1],
+        day: current.day,
+        selected_value: current.values[pos],
+        median: current.median ? current.median[pos] : null,
+        comparison_years: current.years,
+      };
+    } else if (key === 'calendar_weeks') {
+      title = t('Períodos críticos');
+      summary = {
+        metric: metricLabel(),
+        weeks: d.weeks.slice(0, 10).map((row) => ({
+          year: row[0],
+          week: row[1],
+          cell_days: row[2],
+          detections: row[3],
+          critical: row[4],
+          unusual: row[5],
+        })),
+      };
+    } else {
+      return null;
+    }
+
+    return {
+      chart: key,
+      title,
+      filters: explainFilters(),
+      data: summary,
+    };
+  }
+
+  document.querySelectorAll('[data-explain]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!state.data) return;
+      const payload = buildExplain(button.dataset.explain);
+      if (payload) window.MovirisExplain.open(payload);
+    });
+  });
+
   async function load() {
     setMsg('');
     try {
       state.data = await getJson(`/api/calendario/matrix?${areaQuery()}`);
     } catch (error) {
-      setMsg(error.message || 'No se pudieron consultar los datos.', true);
+      console.error(error);
+      setMsg(t('No se pudieron cargar los datos.'), true);
       return;
     }
     const d = state.data;
@@ -463,7 +571,7 @@
     const button = $('btn-csv');
     const { min_date: start, max_date: end } = state.data;
     button.disabled = true;
-    setMsg('Preparando el CSV…');
+    setMsg(t('Preparando el CSV…'));
     try {
       const res = await fetch(`/api/mapa/csv?${areaQuery({ start, end })}`);
       if (!res.ok) {
@@ -473,14 +581,15 @@
       const blob = await res.blob();
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `moviris_celdas_${start}_${end}.csv`;
+      link.download = `moviris_cell_days_${start}_${end}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(link.href);
       setMsg('');
     } catch (error) {
-      setMsg(error.message || 'No se pudo generar el CSV.', true);
+      console.error(error);
+      setMsg(t('No se pudo generar el CSV.'), true);
     } finally {
       button.disabled = false;
     }

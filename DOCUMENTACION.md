@@ -3,11 +3,13 @@
 **Tipo:** Bienvenida animada + componente ETL para focos de calor (subida de CSV, limpieza, línea base y publicación opcional en Turso)  
 **Backend:** Flask (Python)  
 **Frontend:** HTML, CSS y JavaScript vanilla (bienvenida animada + pestaña ETL)  
+**Idiomas:** Interfaz bilingüe EN/ES con diccionario estático (`i18n.js`); inglés por defecto  
+**Explain:** Botón por gráfico en Dashboard y Calendario; una llamada a Groq por clic (`backend/explain.py`)  
 **Motor ETL:** Python estándar (`csv`, `sqlite3`, `statistics`, `zlib`)  
 **Base de datos:** Turso (libSQL) para publicación remota y SQLite local para staging  
 **Fuente de datos:** NASA FIRMS (MODIS y VIIRS, archivo y NRT)  
 **Entorno de ejecución:** Python 3.10+ (Windows / Linux)  
-**Estado actual:** Modo local por defecto (`TURSO_ENABLED=false`), con lectura Turso disponible al activar `true`; bienvenida en `/`, componente Inicio en `/inicio/`, mapa en `/mapa/`, calendario en `/calendario/`, Dashboard con API en `/dashboard/` y ETL en `/etl/`
+**Estado actual:** Modo local por defecto (`TURSO_ENABLED=false`), con lectura Turso disponible al activar `true`; bienvenida en `/`, componente Inicio en `/inicio/`, mapa en `/mapa/`, calendario en `/calendario/`, Dashboard con API en `/dashboard/`, ETL en `/etl/` e interfaz EN/ES con Explain (Groq) en Dashboard y Calendario
 
 > [!IMPORTANT]
 > **Modo local activo.** El proyecto arranca con `TURSO_ENABLED=false`. En este modo la pestaña ETL, los endpoints de lectura y el CLI trabajan únicamente contra `data/moviris_staging.db`; no se consulta ni se escribe en Turso. Para reconectar, cambia `TURSO_ENABLED=true` en `.env`. No hay botón de conexión en la interfaz.
@@ -28,12 +30,14 @@
 | **Cálculo estadístico** | `statistics`, `math` | Media, desviación, percentiles y z-score |
 | **Máscara geográfica** | Natural Earth 1:10 m rasterizado a 0,01° | Distinguir tierra y mar sin dependencias externas |
 | **Frontend** | HTML5 + CSS3 + JavaScript vanilla | Bienvenida animada, Inicio, Mapa, Calendario y pestaña ETL |
+| **Idioma** | Diccionario estático `i18n.js` + `Intl` | Interfaz EN/ES, números y fechas por locale; sin API de traducción |
+| **Explain** | Groq Chat Completions (`urllib` de la stdlib) | Explicación breve por gráfico, solo con los datos enviados |
 | **Mapa** | Leaflet 1.9.4 (CDN) + teselas OpenStreetMap | Visualización de celdas y áreas de interés |
 | **Servidor de producción** | No incluido | El servidor Flask es de desarrollo; usar un WSGI para producción |
 | **Control de versiones** | Git / GitHub | Repositorio del proyecto |
 
 > [!NOTE]
-> No se utilizan frameworks de frontend, ORM, pandas ni librerías de mapas en el backend. La bienvenida, Inicio y ETL usan JavaScript vanilla; el componente Mapa usa Leaflet 1.9.4 desde CDN con teselas de OpenStreetMap y el backend consulta SQL parametrizado. El ETL usa únicamente la biblioteca estándar de Python más `libsql-client`.
+> No se utilizan frameworks de frontend, ORM, pandas ni librerías de mapas en el backend. La bienvenida, Inicio y ETL usan JavaScript vanilla; el componente Mapa usa Leaflet 1.9.4 desde CDN con teselas de OpenStreetMap, el Dashboard usa Chart.js 4.4.1 desde CDN y toda la interfaz comparte el diccionario estático de `i18n.js`. El backend consulta SQL parametrizado. El ETL usa únicamente la biblioteca estándar de Python más `libsql-client`; Explain usa `urllib` de la stdlib.
 
 ---
 
@@ -51,16 +55,23 @@ MOVIRIS/
 ├── index.html                 # Bienvenida (se sirve en /)
 ├── styles.css                 # Estilos de la bienvenida
 ├── script.js                  # Animaciones de la bienvenida
+├── i18n.js                    # Diccionario EN/ES, selector y formatos regionales
+├── explain.js                 # Ventana Explain compartida (Dashboard y Calendario)
+├── explain.css                # Estilos del botón y de la ventana Explain
 ├── README.md                  # Inicio rápido
 ├── DOCUMENTACION.md           # Este documento
 │
 ├── backend/
 │   ├── __init__.py
 │   ├── app.py                 # Rutas, subida/borrado de archivos y frontend
+│   ├── explain.py             # POST /api/explain: una llamada a Groq por clic
 │   ├── db.py                  # Lecturas locales o Turso según TURSO_ENABLED
 │   ├── jobs.py                # Gestor de trabajos ETL en segundo plano
 │   ├── settings.py            # Interruptor TURSO_ENABLED
 │   └── schema.sql             # DDL de referencia (sin datos)
+│
+├── tests/
+│   └── test_explain.py        # Pruebas de /api/explain con Groq simulado
 │
 ├── etl/
 │   ├── index.html             # Pestaña simplificada de ETL
@@ -111,7 +122,10 @@ MOVIRIS/
 | `index.html` | Bienvenida servida en `/` | Sí |
 | `styles.css` | Estilos de la bienvenida | Sí |
 | `script.js` | Animaciones de la bienvenida | Sí |
+| `i18n.js` | Diccionario EN/ES, selector de idioma y helpers de formato | Sí |
+| `explain.js`, `explain.css` | Botón y ventana Explain compartidos | Sí |
 | `backend/` | Backend Flask, ETL jobs y acceso a datos | Sí |
+| `tests/` | Pruebas automatizadas (`test_explain.py`) | Sí |
 | `etl/` | Pestaña ETL y motor de transformación | Sí |
 | `header/` | Componente compartido de header; no se duplica en las páginas | Sí |
 | `inicio/` | Componente Inicio (landing) | Sí |
@@ -120,7 +134,7 @@ MOVIRIS/
 | `dashboard/` | Dashboard de patrones históricos + blueprint Flask | Sí |
 | `ico.svg` | Logo servido en `/ico.svg`; `fill="#637545"` | Sí |
 | `requirements.txt` | Dependencias Python | Sí |
-| `.env` | Token de Turso y `TURSO_ENABLED` | **No** (ignorado) |
+| `.env` | Token de Turso, `TURSO_ENABLED` y credenciales de Groq | **No** (ignorado) |
 | `data/` | Staging SQLite generado | **No** (ignorado) |
 | `uploads/` | Archivos temporales de subida | **No** (ignorado) |
 | `__pycache__/`, `*.pyc` | Caché de Python | **No** (ignorado) |
@@ -290,6 +304,7 @@ La bienvenida se sirve en `/` y es completamente estática: **no llama a la API 
 - **Revelado:** JS añade `is-loaded`; titular, subtítulo, CTA, satélite y datos aparecen escalonados. El titular usa opacidad + desplazamiento, **sin `overflow: hidden`**, para no cortar descendentes como la “g”.
 - **Accesibilidad:** `prefers-reduced-motion` detiene la órbita y la red; sin JS, el contenido sigue visible y el enlace funciona.
 - **Navegación:** el CTA lleva a `/inicio/`, el componente Inicio.
+- **Selector de idioma:** la portada no monta el header, así que incluye su propio `#lang-select` (EN/ES) en la esquina superior derecha, con la misma clave `localStorage['moviris.lang']`.
 - **Responsive:** dos columnas en escritorio; en móvil, una columna con CTA y datos compactos; el satélite se adapta al espacio restante.
 
 ### [Header compartido] `header/`
@@ -298,15 +313,16 @@ El header es un componente separado; **no se copia su HTML dentro de las página
 
 | Archivo | Rol |
 |---|---|
-| `index.html` | Fragmento: marca, navegación (Inicio, Calendario, Mapa, Dashboard, ETL) y rango 2012–2026 |
-| `style.css` | Estilos con alcance `#site-header`, pestaña activa y responsive |
-| `script.js` | Descarga el fragmento, lo inyecta en `#site-header` y marca `aria-current="page"` |
+| `index.html` | Fragmento: marca, navegación (Inicio, Calendario, Mapa, Dashboard, ETL), rango 2012–2026 y selector `EN/ES` |
+| `style.css` | Estilos con alcance `#site-header`, pestaña activa, selector de idioma y responsive |
+| `script.js` | Descarga el fragmento, lo inyecta en `#site-header`, marca `aria-current="page"` y aplica el idioma al fragmento |
 
 - **Páginas que lo usan:** `/etl/`, `/inicio/`, `/mapa/`, `/calendario/` y `/dashboard/`. La bienvenida `/` **no** lo monta.
 - **Integración:** cada página solo incluye `<div id="site-header"></div>`, `/header/style.css` y `/header/script.js`; el resto lo resuelve el componente.
 - **Sin duplicación:** las páginas no contienen las clases `hd-*` ni el HTML del header.
 - **Enlaces:** todas las pestañas del header tienen página. El Dashboard consume `/api/dashboard/summary`.
 - **Sin API/Turso:** el header solo descarga su propio fragmento estático.
+- **Idioma:** el selector `EN/ES` es parte del fragmento. Al cambiarlo, `i18n.js` guarda la preferencia, añade `?lang=` a la URL y recarga para que números, fechas y gráficos se rendericen en el idioma elegido.
 - **Rutas:** `/header/index.html`, `/header/style.css` y `/header/script.js`.
 
 ### [Mapa] `mapa/`
@@ -423,6 +439,43 @@ CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi.v2']`).
 - Chart.js se carga desde CDN; si no hay Internet, la página avisa y no dibuja los gráficos.
 - Monta `#site-header` y carga `/header/*`; el header marca **Dashboard**.
 
+### [Idioma] `i18n.js`
+
+El idioma es un componente transversal: se carga antes de los scripts de cada página y traduce el DOM sin tocar el HTML estático.
+
+| Archivo | Rol |
+|---|---|
+| `i18n.js` | Diccionario EN/ES, lectura/guardado del idioma, traducción de texto y atributos, formatos `Intl` |
+| selector `#lang-select` | En el header compartido y en la portada (que no monta header) |
+
+- **Idioma por defecto:** inglés (`en`); español (`es`) como segunda opción.
+- **Persistencia:** `localStorage['moviris.lang']`. También acepta `?lang=en` o `?lang=es`; el parámetro tiene prioridad y actualiza la preferencia.
+- **Diccionario estático:** las cadenas en español del HTML/JS son las claves; `EN` contiene la traducción inglesa. No se usa ninguna API de traducción.
+- **Traducción automática:** un `TreeWalker` recorre nodos de texto (excluye `script`, `style`, `noscript`, `code`, `pre`, `textarea`) y traduce `placeholder`, `title`, `aria-label` y `alt`. Los textos generados después por JS se traducen llamando a `MovirisI18n.apply(...)` o usando `t(...)`.
+- **Anti-destello:** al arrancar añade `html.moviris-i18n-loading` para ocultar el cuerpo hasta aplicar el idioma; un temporizador de 2.5 s lo revela si una CDN retrasa `DOMContentLoaded`.
+- **Cambio de idioma:** guarda la preferencia, escribe `?lang=` en la URL y recarga la página para que gráficos, números y fechas se recalculen.
+- **Formatos:** `number`, `decimal`, `coordinate`, `percent`, `monthName`, `weekdayName` y `date` usan `Intl` con `en-US` / `es-EC`. Ejemplo: `560,264` en inglés y `560.264` en español.
+- **API pública:** `window.MovirisI18n` expone `t`, `apply`, `setLang`, `number`, `decimal`, `coordinate`, `percent`, `monthName`, `weekdayName`, `date`, `locale`, `lang` y `dictionary`.
+- **Alcance:** navegación, títulos, etiquetas, botones, tooltips, leyendas, ejes, textos de gráficos, errores de interfaz, Inicio, Calendario, Mapa, Dashboard y ETL. Los mensajes internos del ETL generados por el backend conservan su idioma original.
+
+### [Explain] `explain.js`, `explain.css` y `backend/explain.py`
+
+Botón **Explain / Explicar** en los cinco gráficos del Dashboard y en los tres bloques del Calendario (matriz año × mes, este mes frente a la mediana y períodos críticos).
+
+| Archivo | Rol |
+|---|---|
+| `explain.js` | Ventana modal compartida: apertura, `Loading…`, error, cierre con X/Esc y una única petición |
+| `explain.css` | Estilo del botón, overlay y diálogo; `position: relative` en las tarjetas |
+| `backend/explain.py` | Blueprint `explain`: validación, límite de peticiones, prompt y llamada a Groq |
+
+- **Una llamada por clic:** no hay chat ni historial. Cada clic envía `POST /api/explain` y muestra la respuesta; cerrar la ventana aborta la petición en curso.
+- **Contenido enviado:** `chart` (lista blanca), `title`, `filters` (área, confianza, métrica, período y selección), `lang` y un resumen compacto (`top_years`, `top_months`, medianas, índices o semanas; nunca la matriz completa).
+- **Respuesta:** texto plano de unas 100 palabras en el idioma activo; explica qué muestra el gráfico, qué dicen los datos y qué significan. El prompt prohíbe inventar cifras y usar Markdown.
+- **Backend:** usa `urllib.request` de la stdlib (sin dependencia nueva), `temperature: 0.2`, `max_tokens: 240`, timeout de 25 s y un máximo de 20 peticiones/minuto por IP.
+- **Configuración:** `GROQ_LLM_TOKEN` y `GROQ_MODEL` viven solo en `.env`/entorno del servidor. Sin ambos, el endpoint responde `503` con un mensaje localizado; la clave nunca se envía al navegador.
+- **Errores:** `400` solicitud inválida, `413` resumen demasiado grande, `429` demasiadas peticiones, `502` fallo de Groq y `503` sin configurar. Los mensajes se devuelven en `en` o `es` según `lang`.
+- **Privacidad:** no se registra el token ni el cuerpo de la petición en los logs.
+
 ### [Backend] `backend/app.py`
 
 #### Constantes
@@ -460,6 +513,9 @@ CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi.v2']`).
 | `GET` | `/` | Bienvenida (`index.html` raíz) |
 | `GET` | `/styles.css` | Estilos de la bienvenida |
 | `GET` | `/script.js` | Animaciones de la bienvenida |
+| `GET` | `/i18n.js` | Diccionario EN/ES y helpers de formato |
+| `GET` | `/explain.js` | Ventana Explain compartida |
+| `GET` | `/explain.css` | Estilos del botón y la ventana Explain |
 | `GET` | `/header/index.html` | Fragmento del header compartido |
 | `GET` | `/header/style.css` | Estilos del header compartido |
 | `GET` | `/header/script.js` | Inyección y navegación activa del header |
@@ -481,6 +537,7 @@ CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi.v2']`).
 | `GET` | `/dashboard`, `/dashboard/`, `/dashboard/index.html` | Página del Dashboard (blueprint `dashboard`) |
 | `GET` | `/dashboard/style.css`, `/dashboard/script.js` | Assets del Dashboard; `dashboard.py` no se expone |
 | `GET` | `/api/dashboard/summary` | Totales, matriz año × mes y cobertura de sensores (blueprint `dashboard`) |
+| `POST` | `/api/explain` | Explicación breve de un gráfico con Groq (blueprint `explain`) |
 | `GET` | `/ico.svg` | Logo de la raíz (sin copia en `etl/`) |
 | `GET` | `/api/health` | Modo, estado de Turso/staging y tablas |
 | `GET` | `/api/files` | CSV del proyecto (si existe `hackathon/`) y lotes subidos |
@@ -496,7 +553,7 @@ CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi.v2']`).
 | `GET` | `/api/cells` | Celdas con filtros (local o Turso) |
 | `GET` | `/api/mask` | Fuentes no vegetales (local o Turso) |
 
-> `/api/map`, `/api/cells` y `/api/mask` son los endpoints heredados de `backend/db.py`. `/api/mapa/*` pertenece al blueprint del componente Mapa, `/api/calendario/*` al Calendario y `/api/dashboard/*` al Dashboard; todos respetan `TURSO_ENABLED` y no son el mismo endpoint.
+> `/api/map`, `/api/cells` y `/api/mask` son los endpoints heredados de `backend/db.py`. `/api/mapa/*` pertenece al blueprint del componente Mapa, `/api/calendario/*` al Calendario, `/api/dashboard/*` al Dashboard y `/api/explain` al blueprint `explain`; los de lectura respetan `TURSO_ENABLED` y no son el mismo endpoint.
 
 #### Detalle de `POST /api/upload`
 
@@ -834,18 +891,47 @@ El calendario comparte los parámetros de área y confianza del mapa, pero usa t
 - Sin datos en el modo activo → `503`.
 - Sin área o sin `year`/`month` → `400` con `{ "error": "..." }`.
 
-### J. Errores HTTP
+### J. API de Explain (blueprint `explain`)
+
+**`POST /api/explain`:** recibe un resumen ya calculado por el navegador y devuelve una explicación breve generada por Groq.
+
+**Cuerpo JSON:**
+
+| Campo | Tipo | Obligatorio | Detalle |
+|---|---|---|---|
+| `chart` | STRING | Sí | Uno de `years`, `anomaly`, `season`, `index`, `coverage`, `calendar_matrix`, `calendar_compare`, `calendar_weeks` |
+| `title` | STRING | No | Título visible del gráfico; se recorta a 120 caracteres |
+| `filters` | OBJECT | Sí | Área, confianza, métrica, período y selección actual |
+| `data` | OBJECT/ARRAY | Sí | Resumen compacto; el JSON completo no puede superar 14.000 caracteres |
+| `lang` | STRING | No | `en` (default) o `es`; define el idioma del prompt y de los errores |
+
+**Respuesta correcta (`200`):**
+
+```json
+{ "text": "Explicación breve...", "lang": "en" }
+```
+
+- Usa `GROQ_LLM_TOKEN` y `GROQ_MODEL`; si falta cualquiera, responde `503` con `code: "not_configured"`.
+- El modelo no tiene valor por defecto en el código: debe configurarse con un modelo de la lista oficial de Groq.
+- Una sola llamada a `https://api.groq.com/openai/v1/chat/completions`, sin historial, con `max_tokens: 240` y timeout de 25 s.
+- Límite de 20 peticiones por minuto e IP (`429` con `code: "rate_limited"`).
+- Errores localizados: `400` inválido, `413` resumen demasiado grande, `502` fallo de Groq, `503` sin configurar.
+- No registra el token ni el cuerpo enviado; solo el tipo de error.
+
+### K. Errores HTTP
 
 | Código | Condición |
 |---|---|
 | `400` | Faltan archivos, columnas, rutas inválidas o el staging no existe |
 | `404` | Ruta, job o subida inexistente |
 | `409` | Ya hay un ETL en ejecución o se intenta sincronizar en modo local |
-| `413` | La subida supera 512 MB |
+| `413` | La subida supera 512 MB o el resumen de Explain supera 14.000 caracteres |
+| `429` | Se superaron 20 peticiones de Explain por minuto e IP |
 | `500` | Error interno no controlado |
-| `503` | No se pudieron consultar los datos (staging ausente o Turso caído) |
+| `502` | Groq no respondió o devolvió una respuesta vacía |
+| `503` | No se pudieron consultar los datos (staging ausente o Turso caído) o falta configurar Groq |
 
-### K. Caché de consultas
+### L. Caché de consultas
 
 - `backend/cache.py` implementa `TTLCache` (LRU con vencimiento).
 - Usan caché: `/api/mapa/meta`, `/api/mapa/cells`, `/api/dashboard/summary`, `/api/calendario/matrix` y `/api/calendario/month`.
@@ -993,6 +1079,8 @@ CREATE TABLE IF NOT EXISTS non_vegetation_mask (
 > La bienvenida se documenta en la sección 4. Esta sección cubre únicamente la pestaña ETL.
 >
 > La pestaña **monta el header compartido** (`<div id="site-header"></div>` + `/header/style.css` + `/header/script.js`) y conserva su barra de estado “Modo local”. No duplica el HTML del header.
+>
+> La interfaz y los estados se traducen EN/ES con `i18n.js`; los mensajes internos que genera el backend del ETL conservan su idioma original y solo se traducen las etiquetas y los errores de interfaz.
 
 ### A. Composición
 
@@ -1040,7 +1128,7 @@ Sin degradados, sin sombras, sin neones y sin emojis. Tipografía `Inter` con fa
 6. **Progreso:** polling cada 1 s; la etapa actual se deduce del `stage` del backend y del porcentaje.
 7. **Pasos:** `Extract → Transform → Baseline → Estado → Load`. En modo local, `Load (omitido)`.
 8. **Resumen:** `detections`, `daily_rows`, `baseline_rows` y `mask_rows`; tiempo total del job.
-9. **Errores:** caja roja con `job.error`; pistas para Turso, columnas faltantes o staging ausente.
+9. **Errores:** caja roja con `job.error`; en inglés se muestra un mensaje genérico traducido y el detalle original queda en la consola. Pistas para Turso, columnas faltantes o staging ausente.
 10. **Recarga:** la lista empieza vacía; si hay un trabajo en ejecución, se recupera y continúa el polling. Un trabajo terminado no se restaura.
 
 ### E. Accesibilidad y responsive
@@ -1104,10 +1192,13 @@ Copia `.env.example` a `.env`:
 TURSO_DATABASE_URL=libsql://tu-base.turso.io
 TURSO_AUTH_TOKEN=tu-token-de-turso
 TURSO_ENABLED=false
+GROQ_LLM_TOKEN=tu-token-de-groq
+GROQ_MODEL=
 ```
 
 - `TURSO_ENABLED=false` → modo local (recomendado para desarrollo).
 - `TURSO_ENABLED=true` → lecturas y publicaciones en Turso.
+- `GROQ_MODEL` debe ser un modelo de la lista oficial de Groq; no hay valor por defecto en el código. Sin token o sin modelo, Explain responde `503`.
 - `.env` está ignorado por git.
 
 ### D. Arranque
@@ -1169,7 +1260,16 @@ modo anteriores en memoria.
 7. El enlace **Cambiar en el mapa** abre `/mapa/` conservando el área de interés.
 8. El calendario lee el staging local o Turso según `TURSO_ENABLED`. Si no hay datos o Turso falla, `503`.
 
-### H. Uso del CLI
+### H. Idioma y Explain
+
+1. El selector **EN/ES** está en el header y en la portada; la preferencia se guarda en `localStorage['moviris.lang']` y también se puede forzar con `?lang=en` o `?lang=es`.
+2. Al cambiar de idioma, la página se recarga y vuelve a calcular números, meses, fechas y gráficos con el locale correspondiente (`en-US` o `es-EC`).
+3. En `/dashboard/`, cada uno de los cinco gráficos tiene un botón **Explain / Explicar** en su esquina inferior derecha.
+4. En `/calendario/`, los tres bloques (matriz año × mes, este mes frente a la mediana y períodos críticos) tienen su propio botón.
+5. El botón abre una ventana con **Loading… / Cargando…** y luego un texto breve. Se cierra con la **X**, con **Esc** o haciendo clic fuera.
+6. Si falta configurar Groq, la ventana muestra un aviso localizado; el resto de la aplicación sigue funcionando.
+
+### I. Uso del CLI
 
 ```bash
 # Modo local (respeta TURSO_ENABLED=false)
@@ -1184,7 +1284,7 @@ python etl/etl.py --push-only
 
 `--source` acepta una carpeta o un archivo. Si no se indica, busca `hackathon/`; esa carpeta es opcional.
 
-### I. Reconectar Turso
+### J. Reconectar Turso
 
 1. Cambia `TURSO_ENABLED=true` en `.env`.
 2. Guarda el archivo.
@@ -1192,7 +1292,7 @@ python etl/etl.py --push-only
 4. Ejecuta un ETL con push o `POST /api/etl/sync` para publicar el staging.
 5. Los datos actuales de Turso no se modifican hasta ese paso explícito.
 
-### J. Prueba rápida
+### K. Prueba rápida
 
 ```bash
 curl http://127.0.0.1:5000/api/health
@@ -1212,6 +1312,10 @@ curl -X POST http://127.0.0.1:5000/api/etl/run \
 | `TURSO_DATABASE_URL` | `.env` | — | URL `libsql://...` de Turso |
 | `TURSO_AUTH_TOKEN` | `.env` | — | Token de escritura/lectura |
 | `TURSO_ENABLED` | `.env` | `false` en el proyecto | Interruptor local/Turso |
+| `GROQ_LLM_TOKEN` | `.env` | — | Token de Groq; solo backend |
+| `GROQ_MODEL` | `.env` | — (sin valor por defecto) | Modelo de Groq para Explain |
+| `MAX_BODY_CHARS` | `backend/explain.py` | `14_000` | Tamaño máximo del resumen de Explain |
+| `MAX_REQUESTS_PER_MINUTE` | `backend/explain.py` | `20` | Límite de Explain por IP |
 | `DEFAULT_STAGING` | `etl/etl.py` | `data/moviris_staging.db` | SQLite local |
 | `DEFAULT_SOURCE` | `etl/etl.py` | `hackathon/` | Fuente por defecto del CLI (opcional) |
 | `GRID` | `etl/etl.py` | `0.01` | Resolución de la malla |
@@ -1333,18 +1437,35 @@ Se arrancó el backend con credenciales de Turso inválidas y `TURSO_ENABLED=fal
 
 No se consultó ni modificó Turso durante la implementación del modo local ni durante las pruebas de la pestaña. La última sincronización conocida sigue intacta con 558.848 filas (339.729 + 218.660 + 459).
 
+### H. Prueba de idioma y Explain
+
+| Prueba | Resultado |
+|---|---|
+| `GET /i18n.js`, `/explain.js`, `/explain.css` | `200` |
+| Diccionario estático | 198 textos de HTML extraídos; solo 16 son neutros (números, siglas, `MOVIRIS`, `—`, `PNG`, `0%`) y no requieren traducción |
+| jsdom EN | Portada “Read the fire before it spreads.”, Dashboard “Historical fire patterns”, 5 botones **Explain**, Calendario “When your area burns”, 3 botones |
+| jsdom ES | Portada y Dashboard en español, botones **Explicar**, `html lang="es"` |
+| Selector | `#lang-select` en header y portada; valor `en`/`es` según `localStorage` o `?lang=` |
+| Formatos | `560,264` en EN y `560.264` en ES; meses y fechas con `Intl` (`Jan 2026` / `ene 2026`) |
+| `POST /api/explain` sin `GROQ_MODEL` | `503` con `code: not_configured` y mensaje en el idioma pedido |
+| `POST /api/explain` con `chart` inválido | `400` con `code: invalid` |
+| `POST /api/explain` con resumen > 14.000 caracteres | `413` |
+| `POST /api/explain` con Groq simulado | `200` con `text` y `lang` |
+| `python -m unittest discover -s tests -v` | 4 pruebas OK |
+| `node --check` en `i18n.js`, `explain.js` y scripts de página | Sin errores de sintaxis |
+
 ---
 
 ## 12. Deuda Técnica y Buenas Prácticas
 
 1. **Sin autenticación ni autorización:** cualquier cliente con acceso local puede subir archivos o lanzar el ETL. Es aceptable para uso local, no para exposición pública.
-2. **Sin CSRF ni rate limiting:** el backend no está pensado para Internet. Añadir protección si se despliega.
+2. **Sin CSRF ni rate limiting general:** el backend no está pensado para Internet. Solo `/api/explain` tiene un límite básico de 20 peticiones/minuto por IP; el resto de endpoints no lo tiene.
 3. **Jobs en memoria:** reiniciar el servidor pierde el historial y el progreso de un job en curso. El staging y Turso sí persisten.
 4. **Un solo job activo y sin cancelación:** no se puede pausar ni abortar un ETL desde la UI.
 5. **Sincronización secuencial:** 558.848 filas tardan ~8 minutos con lotes HTTP de 4.000. Paralelizar o usar importación masiva reduciría el tiempo.
 6. **Reemplazo completo:** cada push con `replace=true` vuelve a escribir todas las filas; no hay cargas incrementales.
 7. **Sin migraciones:** el esquema se crea con `CREATE TABLE IF NOT EXISTS`; no hay versionado de cambios.
-8. **Sin tests automatizados:** las validaciones, el ETL y los endpoints no tienen suite de pruebas.
+8. **Tests parciales:** `tests/test_explain.py` cubre el endpoint Explain con Groq simulado, pero el ETL, las consultas y el resto de endpoints siguen sin suite automatizada.
 9. **Memoria del ETL:** la agregación y la línea base se mantienen en diccionarios de Python. Con millones de filas (por ejemplo, todo Brasil a 0,01°) el consumo de RAM puede ser alto. Para escalar: malla de 0,05°, filtro de fechas/región o agregación respaldada por SQLite.
 10. **Máscara regional:** la máscara de tierra y la lista de volcanes son específicas de Ecuador / Galápagos / sur de Colombia. Fuera de esa cobertura se asume tierra.
 11. **Archivos temporales:** `uploads/` conserva hasta 50 lotes; los más antiguos se eliminan automáticamente. No es un backup.
@@ -1362,6 +1483,10 @@ No se consultó ni modificó Turso durante la implementación del modo local ni 
 23. **Responsive del mapa:** el breakpoint de 900 px apila mapa y panel, y el de 600 px ajusta controles y altura. El mapa depende de `map.invalidateSize()` (ResizeObserver/orientationchange); si se agrega otro contenedor o un cambio de layout, hay que conservar esa llamada.
 24. **Responsive del calendario:** la matriz año × mes no cabe en 390 px por diseño. Se resuelve con scroll interno en `.matrix-wrap` y `min-width: 0` en las columnas; si se cambia la estructura de `.cols`, hay que conservar ambas reglas para no desbordar la página.
 25. **CSV del calendario:** el botón de descarga usa `/api/mapa/csv`; si el mapa cambia de endpoint o de parámetros, hay que actualizar el calendario. El calendario no tiene exportación propia.
+26. **Diccionario manual:** `i18n.js` usa las cadenas en español como claves. Al añadir texto nuevo en HTML o JS hay que añadir su entrada en `EN`; si falta, la interfaz muestra el español también en inglés. Los textos neutros (siglas, números, `MOVIRIS`) se dejan sin entrada a propósito.
+27. **Recarga al cambiar idioma:** el selector guarda la preferencia y recarga la página. Es intencional para que Chart.js, la matriz y los formatos `Intl` se recalculen; no hay traducción en caliente.
+28. **Explain depende de Groq:** sin `GROQ_LLM_TOKEN` y `GROQ_MODEL` el botón muestra un `503` localizado. El modelo se configura por entorno y no está fijado en el código. El resumen que se envía es compacto (top N, medianas, índices), no los datos completos. El límite por IP vive en memoria del proceso y se reinicia con el servidor.
+29. **Logs del ETL en español:** los mensajes internos del backend se conservan en su idioma original; en inglés la interfaz muestra un mensaje genérico y el detalle queda en la consola del navegador.
 
 ---
 

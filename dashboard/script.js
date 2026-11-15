@@ -11,22 +11,23 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const fmt = new Intl.NumberFormat('es-EC');
-  const fmtDec = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 1 });
-  const fmtCoord = new Intl.NumberFormat('es-EC', { maximumFractionDigits: 3 });
+  const I18N = window.MovirisI18n;
+  const t = (text, vars) => I18N.t(text, vars);
+  const fmt = { format: (value) => I18N.number(value) };
+  const fmtDec = { format: (value) => I18N.decimal(value) };
+  const fmtCoord = { format: (value) => I18N.coordinate(value) };
   const STORE_KEY = 'moviris.aoi.v2';
 
   const DEFAULT_AOI = { south: -85, north: 85, west: -180, east: 180 };
-  const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
-    'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const MONTHS = Array.from({ length: 12 }, (_, index) => I18N.monthName(index));
+  const MONTHS_SHORT = Array.from({ length: 12 }, (_, index) => I18N.monthName(index, true));
 
   const POS = { cell_days: 0, detections: 1, critical: 2, unusual: 3 };
   const LABELS = {
-    cell_days: 'Celdas-día activas',
-    detections: 'Detecciones',
-    critical: 'Celdas-día críticas',
-    unusual: 'Celdas-día inusuales',
+    cell_days: t('Celdas-día activas'),
+    detections: t('Detecciones'),
+    critical: t('Celdas-día críticas'),
+    unusual: t('Celdas-día inusuales'),
   };
 
   const C = {
@@ -128,7 +129,7 @@
     const a = state.aoi;
     $('aoi-text').textContent =
       `Lat ${fmtCoord.format(a.south)} a ${fmtCoord.format(a.north)} · Lon ${fmtCoord.format(a.west)} a ${fmtCoord.format(a.east)}` +
-      (state.usingDefault ? ' · Vista mundial (por defecto)' : '');
+      (state.usingDefault ? ' · ' + t('Vista mundial (por defecto)') : '');
   }
 
   // -------------------------------------------------------------------------
@@ -168,6 +169,7 @@
     return {
       responsive: true,
       maintainAspectRatio: false,
+      locale: I18N.lang === 'en' ? 'en-US' : 'es-EC',
       animation: reduceMotion ? false : { duration: 300 },
       plugins: {
         legend: { labels: { color: C.ink, boxWidth: 12, font: { family: MONO, size: 11 } } },
@@ -224,7 +226,7 @@
           },
           ...(avg === null ? [] : [{
             type: 'line',
-            label: 'Media de años completos',
+            label: t('Media de años completos'),
             data: m.years.map(() => avg),
             borderColor: C.ember,
             borderDash: [6, 4],
@@ -245,8 +247,13 @@
       if (!best || v > best.v) best = { y, v };
     }
     $('cap-years').textContent = avg === null
-      ? 'Aún no hay años completos para calcular la media. Las barras claras son años incompletos.'
-      : `Media de ${m.full.length} años completos: ${fmtDec.format(avg)}. Año más activo: ${best.y} (${fmt.format(best.v)}). Las barras claras son años incompletos.`;
+      ? t('Aún no hay años completos para calcular la media. Las barras claras son años incompletos.')
+      : t('Media de {n} años completos: {avg}. Año más activo: {year} ({value}). Las barras claras son años incompletos.', {
+        n: m.full.length,
+        avg: fmtDec.format(avg),
+        year: best.y,
+        value: fmt.format(best.v),
+      });
   }
 
   // 02 · Anomalía anual
@@ -256,7 +263,7 @@
     const avg = mean(fullValues);
 
     if (m.full.length < 3 || !avg) {
-      clearChart('anomaly', 'c-anomaly', 'Se necesitan al menos 3 años completos con actividad.');
+      clearChart('anomaly', 'c-anomaly', t('Se necesitan al menos 3 años completos con actividad.'));
       $('cap-anomaly').textContent = '';
       return;
     }
@@ -266,12 +273,14 @@
       options.scales.y.beginAtZero = false;
       options.scales.y.ticks.callback = (v) => `${v} %`;
       options.plugins.legend.display = false;
-      options.plugins.tooltip.callbacks = { label: (ctx) => `${fmtDec.format(ctx.parsed.y)} % frente a la media` };
+      options.plugins.tooltip.callbacks = {
+        label: (ctx) => t('{value} % frente a la media', { value: fmtDec.format(ctx.parsed.y) }),
+      };
       draw('anomaly', 'c-anomaly', {
         type: 'bar',
         data: {
           labels: m.full,
-          datasets: [{ label: 'Anomalía (%)', data: pct, backgroundColor: pct.map((v) => (v >= 0 ? C.ember : C.primary)) }],
+          datasets: [{ label: t('Anomalía (%)'), data: pct, backgroundColor: pct.map((v) => (v >= 0 ? C.ember : C.primary)) }],
         },
         options,
       });
@@ -281,8 +290,16 @@
     pct.forEach((v, i) => {
       if (Math.abs(v) > Math.abs(pct[top])) top = i;
     });
-    $('cap-anomaly').textContent =
-      `${above} de ${m.full.length} años quedaron por encima de la media. Mayor desviación: ${m.full[top]} (${pct[top] > 0 ? '+' : '−'}${fmtDec.format(Math.abs(pct[top]))} %).`;
+    $('cap-anomaly').textContent = t(
+      '{above} de {total} años quedaron por encima de la media. Mayor desviación: {year} ({sign}{value} %).',
+      {
+        above,
+        total: m.full.length,
+        year: m.full[top],
+        sign: pct[top] > 0 ? '+' : '−',
+        value: fmtDec.format(Math.abs(pct[top])),
+      }
+    );
   }
 
   // 03 · Estacionalidad
@@ -307,7 +324,7 @@
         data: {
           labels: MONTHS_SHORT,
           datasets: [
-            { label: `Mediana (${base.length} ${base.length === 1 ? 'año' : 'años'})`, data: med, backgroundColor: C.sage, order: 2 },
+            { label: t('Mediana ({n} {years})', { n: base.length, years: t(base.length === 1 ? 'año' : 'años') }), data: med, backgroundColor: C.sage, order: 2 },
             {
               type: 'line', label: String(state.selYear), data: current, borderColor: C.ink,
               backgroundColor: C.ink, borderWidth: 2, pointRadius: 3, tension: 0.2, spanGaps: false, order: 1,
@@ -323,8 +340,12 @@
       if (v > med[top]) top = i;
     });
     $('cap-season').textContent = med[top] > 0
-      ? `Mes más activo según la mediana: ${MONTHS[top]} (${fmtDec.format(med[top])}). La mediana usa ${m.full.length ? 'años completos' : 'todos los años disponibles'}.`
-      : 'Sin actividad en esta área.';
+      ? t('Mes más activo según la mediana: {month} ({value}). La mediana usa {scope}.', {
+        month: MONTHS[top],
+        value: fmtDec.format(med[top]),
+        scope: t(m.full.length ? 'años completos' : 'todos los años disponibles'),
+      })
+      : t('Sin actividad en esta área.');
   }
 
   // 04 · Detecciones frente a celdas-día
@@ -335,7 +356,7 @@
     const cdAvg = mean(cd);
 
     if (m.full.length < 2 || !detAvg || !cdAvg) {
-      clearChart('index', 'c-index', 'Se necesitan al menos 2 años completos con actividad.');
+      clearChart('index', 'c-index', t('Se necesitan al menos 2 años completos con actividad.'));
       $('cap-index').textContent = '';
       return;
     }
@@ -347,23 +368,23 @@
         data: {
           labels: m.full,
           datasets: [
-            { label: 'Detecciones', data: det.map((v) => (v / detAvg) * 100), borderColor: C.ember, backgroundColor: C.ember, borderWidth: 2, pointRadius: 3, tension: 0.2 },
-            { label: 'Celdas-día activas', data: cd.map((v) => (v / cdAvg) * 100), borderColor: C.dark, backgroundColor: C.dark, borderWidth: 2, pointRadius: 3, tension: 0.2 },
+            { label: t('Detecciones'), data: det.map((v) => (v / detAvg) * 100), borderColor: C.ember, backgroundColor: C.ember, borderWidth: 2, pointRadius: 3, tension: 0.2 },
+            { label: t('Celdas-día activas'), data: cd.map((v) => (v / cdAvg) * 100), borderColor: C.dark, backgroundColor: C.dark, borderWidth: 2, pointRadius: 3, tension: 0.2 },
           ],
         },
         options,
       });
     }
-    $('cap-index').textContent =
-      'Índice 100 = media de los años completos. Las detecciones aumentan cuando entran más satélites; las celdas-día cuentan cada celda una sola vez por día. ' +
-      'Si las líneas se separan, el cambio viene de los sensores y no del fuego.';
+    $('cap-index').textContent = t(
+      'Índice 100 = media de los años completos. Las detecciones aumentan cuando entran más satélites; las celdas-día cuentan cada celda una sola vez por día. Si las líneas se separan, el cambio viene de los sensores y no del fuego.'
+    );
   }
 
   // 05 · Cobertura por familia de sensores
   function renderCoverage() {
     const rows = state.data.coverage;
     if (!rows.length) {
-      clearChart('coverage', 'c-coverage', 'Sin datos de sensores en esta área.');
+      clearChart('coverage', 'c-coverage', t('Sin datos de sensores en esta área.'));
       $('cap-coverage').textContent = '';
       return;
     }
@@ -376,16 +397,17 @@
         data: {
           labels: rows.map((r) => r[0]),
           datasets: [
-            { label: 'Solo MODIS', data: rows.map((r) => r[1]), backgroundColor: C.sage },
-            { label: 'MODIS y VIIRS', data: rows.map((r) => r[2]), backgroundColor: C.primary },
-            { label: 'Solo VIIRS', data: rows.map((r) => r[3]), backgroundColor: C.ink },
+            { label: t('Solo MODIS'), data: rows.map((r) => r[1]), backgroundColor: C.sage },
+            { label: t('MODIS y VIIRS'), data: rows.map((r) => r[2]), backgroundColor: C.primary },
+            { label: t('Solo VIIRS'), data: rows.map((r) => r[3]), backgroundColor: C.ink },
           ],
         },
         options,
       });
     }
-    $('cap-coverage').textContent =
-      'Celdas-día activas del área según qué familia de sensores las detectó. Muestra el paso de MODIS a VIIRS y el período en que ambos observan.';
+    $('cap-coverage').textContent = t(
+      'Celdas-día activas del área según qué familia de sensores las detectó. Muestra el paso de MODIS a VIIRS y el período en que ambos observan.'
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -412,16 +434,130 @@
     renderCoverage();
   }
 
+  // -------------------------------------------------------------------------
+  // Explain: resumen compacto para Groq (sin arreglos enormes)
+  // -------------------------------------------------------------------------
+
+  function explainFilters() {
+    return {
+      area: {
+        south: state.aoi.south,
+        north: state.aoi.north,
+        west: state.aoi.west,
+        east: state.aoi.east,
+      },
+      confidence: state.conf,
+      metric: LABELS[state.metric],
+      period: { min_date: state.data.min_date, max_date: state.data.max_date },
+      selected_year: state.selYear,
+    };
+  }
+
+  function buildExplain(key) {
+    const m = buildModel();
+    const d = state.data;
+    const p = POS[state.metric];
+    const titles = {
+      years: t('Actividad por año'),
+      anomaly: t('Anomalía anual'),
+      season: t('Estacionalidad'),
+      index: t('Detecciones frente a celdas-día'),
+      coverage: t('Quién vio cada celda-día'),
+    };
+    let summary;
+
+    if (key === 'years') {
+      const rows = m.years.map((year) => ({
+        year,
+        value: m.yearSum(year, p),
+        complete: m.isFull(year),
+      }));
+      const average = mean(m.full.map((year) => m.yearSum(year, p)));
+      summary = {
+        metric: LABELS[state.metric],
+        average_complete_years: average,
+        top_years: [...rows].sort((a, b) => b.value - a.value).slice(0, 5),
+        years: rows,
+      };
+    } else if (key === 'anomaly') {
+      const values = m.full.map((year) => ({ year, value: m.yearSum(year, p) }));
+      const average = mean(values.map((row) => row.value));
+      const deviations = values.map((row) => ({
+        year: row.year,
+        deviation_pct: average ? ((row.value - average) / average) * 100 : null,
+      }));
+      summary = {
+        metric: LABELS[state.metric],
+        average_complete_years: average,
+        complete_years: m.full,
+        largest_deviations: deviations
+          .slice()
+          .sort((a, b) => Math.abs(b.deviation_pct || 0) - Math.abs(a.deviation_pct || 0))
+          .slice(0, 6),
+      };
+    } else if (key === 'season') {
+      const base = m.full.length ? m.full : m.years;
+      const medians = Array.from({ length: 12 }, (_, index) =>
+        median(base.map((year) => m.val(year, index + 1, p))));
+      const current = Array.from({ length: 12 }, (_, index) => ({
+        month: MONTHS[index],
+        value: m.monthCovered(state.selYear, index + 1)
+          ? m.val(state.selYear, index + 1, p)
+          : null,
+      }));
+      summary = {
+        metric: LABELS[state.metric],
+        base_years: base,
+        selected_year: state.selYear,
+        monthly_median: medians,
+        selected_year_months: current,
+      };
+    } else if (key === 'index') {
+      const detections = m.full.map((year) => m.yearSum(year, POS.detections));
+      const cellDays = m.full.map((year) => m.yearSum(year, POS.cell_days));
+      const detAverage = mean(detections);
+      const cdAverage = mean(cellDays);
+      summary = {
+        complete_years: m.full,
+        detections_index: detections.map((value) => (detAverage ? (value / detAverage) * 100 : null)),
+        cell_days_index: cellDays.map((value) => (cdAverage ? (value / cdAverage) * 100 : null)),
+      };
+    } else if (key === 'coverage') {
+      summary = {
+        columns: ['year', t('Solo MODIS'), t('MODIS y VIIRS'), t('Solo VIIRS')],
+        rows: d.coverage.slice(0, 20),
+      };
+    } else {
+      return null;
+    }
+
+    return {
+      chart: key,
+      title: titles[key] || key,
+      filters: explainFilters(),
+      data: summary,
+    };
+  }
+
+  document.querySelectorAll('[data-explain]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!state.data) return;
+      const payload = buildExplain(button.dataset.explain);
+      if (payload) window.MovirisExplain.open(payload);
+    });
+  });
+
   async function load() {
     setMsg('');
     try {
       state.data = await getJson(`/api/dashboard/summary?${areaQuery()}`);
     } catch (error) {
-      setMsg(error.message || 'No se pudieron consultar los datos.', true);
+      console.error(error);
+      setMsg(t('No se pudieron cargar los datos.'), true);
       return;
     }
     if (!hasChart()) {
-      setMsg('No se pudo cargar la librería de gráficos (Chart.js). Revisa tu conexión a internet.', true);
+      setMsg(t('No se pudo cargar la librería de gráficos (Chart.js). Revisa tu conexión a internet.'), true);
     }
     renderAll();
   }
@@ -435,17 +571,18 @@
     const button = $('btn-csv');
     const { min_date: start, max_date: end } = state.data;
     button.disabled = true;
-    setMsg('Preparando el CSV…');
+    setMsg(t('Preparando el CSV…'));
     try {
       const res = await fetch(`/api/mapa/csv?${areaQuery({ start, end })}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Error ${res.status} al generar el CSV.`);
       }
-      download(await res.blob(), `moviris_celdas_${start}_${end}.csv`);
+      download(await res.blob(), `moviris_cell_days_${start}_${end}.csv`);
       setMsg('');
     } catch (error) {
-      setMsg(error.message || 'No se pudo generar el CSV.', true);
+      console.error(error);
+      setMsg(t('No se pudo generar el CSV.'), true);
     } finally {
       button.disabled = false;
     }
@@ -456,22 +593,26 @@
     const m = buildModel();
     const cells = new Map(state.data.year_cells.map((r) => [r[0], r[1]]));
     const cdAvg = mean(m.full.map((y) => m.yearSum(y, POS.cell_days)));
-    const lines = ['anio,anio_completo,celdas_dia_activas,detecciones,celdas_dia_criticas,celdas_dia_inusuales,celdas_con_focos,anomalia_celdas_dia_pct'];
+    const headers = I18N.lang === 'en'
+      ? 'year,complete_year,active_cell_days,detections,critical_cell_days,unusual_cell_days,cells_with_hotspots,cell_days_anomaly_pct'
+      : 'anio,anio_completo,celdas_dia_activas,detecciones,celdas_dia_criticas,celdas_dia_inusuales,celdas_con_focos,anomalia_celdas_dia_pct';
+    const lines = [headers];
     for (const y of m.years) {
       const cd = m.yearSum(y, POS.cell_days);
       const anomaly = m.isFull(y) && cdAvg ? (((cd - cdAvg) / cdAvg) * 100).toFixed(1) : '';
       lines.push([
-        y, m.isFull(y) ? 'si' : 'no', cd, m.yearSum(y, POS.detections), m.yearSum(y, POS.critical),
+        y, m.isFull(y) ? (I18N.lang === 'en' ? 'yes' : 'si') : 'no', cd, m.yearSum(y, POS.detections), m.yearSum(y, POS.critical),
         m.yearSum(y, POS.unusual), cells.get(y) || 0, anomaly,
       ].join(','));
     }
-    download(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }), 'moviris_resumen_anual.csv');
+    const filename = I18N.lang === 'en' ? 'moviris_annual_summary.csv' : 'moviris_resumen_anual.csv';
+    download(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }), filename);
   }
 
   function downloadPng(key) {
     const chart = charts[key];
     if (!chart) {
-      setMsg('Este gráfico no tiene datos para descargar.', true);
+      setMsg(t('Este gráfico no tiene datos para descargar.'), true);
       return;
     }
     const link = document.createElement('a');

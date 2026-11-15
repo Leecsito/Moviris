@@ -4,6 +4,11 @@ Bienvenida, Inicio, Mapa, Calendario, Dashboard y componente ETL para los datos
 de **NASA FIRMS** (MODIS y VIIRS, archivo y NRT). El proyecto puede trabajar en
 **modo local** con SQLite o publicar en **Turso**.
 
+La interfaz es **bilingüe EN/ES** (inglés por defecto), con selector en el header,
+números y fechas por idioma y un diccionario estático sin servicios externos.
+El Dashboard y el Calendario incluyen un botón **Explain / Explicar** que pide una
+explicación breve de cada gráfico a Groq.
+
 - `/` → bienvenida animada (`index.html`, `styles.css`, `script.js` en la raíz).
 - `/inicio/` → componente Inicio: contexto del proyecto, problema, solución y públicos.
 - `/mapa/` → mapa de celdas por área y fechas, con fondo OpenStreetMap. En móvil, el mapa va arriba y el panel debajo.
@@ -141,13 +146,19 @@ de reemplazo del proceso.
 ├── index.html                 # bienvenida (se sirve en /)
 ├── styles.css                 # estilos de la bienvenida
 ├── script.js                  # animaciones de la bienvenida
+├── i18n.js                    # diccionario EN/ES y formatos regionales
+├── explain.js / explain.css   # botón y ventana Explain compartidos
 ├── ico.svg                    # logo raíz (fill #637545)
 ├── backend/
 │   ├── app.py                 # rutas HTTP, subida y borrado de archivos
 │   ├── db.py                  # lecturas locales o Turso según el flag
+│   ├── explain.py             # endpoint /api/explain hacia Groq
+│   ├── cache.py               # caché TTL de consultas pesadas
 │   ├── jobs.py                # ETL en segundo plano
 │   ├── settings.py            # interruptor TURSO_ENABLED
 │   └── schema.sql             # esquema de referencia
+├── tests/
+│   └── test_explain.py        # pruebas sin llamar a Groq
 ├── etl/
 │   ├── index.html             # pestaña simplificada
 │   ├── style.css              # tema claro
@@ -234,6 +245,8 @@ El resumen JSON incluye `mode` (`local`/`turso`), `pushed` y `pushed_rows`.
 | `GET` | `/api/mapa/csv` | CSV en streaming de celdas-día. |
 | `GET` | `/api/calendario/matrix` | Matriz año × mes y semanas críticas del área. |
 | `GET` | `/api/calendario/month` | Detalle diario de un mes (`year`, `month`). |
+| `GET` | `/api/dashboard/summary` | Totales, matriz y cobertura del Dashboard. |
+| `POST` | `/api/explain` | Explicación breve de un gráfico con Groq. |
 
 `stats`, `map`, `cells`, `mask` y los endpoints de mapa, calendario y
 dashboard respetan `TURSO_ENABLED`: con `false` leen el staging local y con
@@ -305,11 +318,13 @@ en memoria con TTL de **5 minutos**:
 
 ## 10. Seguridad
 
-- El token de Turso vive en `.env` y solo lo usa el backend.
-- `.env` está en `.gitignore`.
+- Los tokens de Turso y Groq viven en `.env` y solo los usa el backend.
+- `.env` está en `.gitignore`; `.env.example` solo contiene marcadores.
 - En modo local no se lee ni se escribe en Turso.
 - Los archivos subidos se guardan bajo `uploads/`; el endpoint de borrado valida
   el identificador y la ruta.
+- `/api/explain` limita el tamaño del resumen y aplica un límite básico de
+  peticiones por minuto. La clave de Groq nunca llega al navegador.
 
 ## 11. Despliegue en Render
 
@@ -334,6 +349,8 @@ Variables de entorno:
 | `TURSO_ENABLED` | `true` o `false` |
 | `TURSO_DATABASE_URL` | URL de Turso (`libsql://...`) |
 | `TURSO_AUTH_TOKEN` | token de Turso |
+| `GROQ_LLM_TOKEN` | token de Groq (solo backend) |
+| `GROQ_MODEL` | modelo de Groq para Explain (sin valor por defecto) |
 
 Notas importantes:
 
@@ -353,3 +370,39 @@ python run.py
 ```
 
 Gunicorn es para Linux/Render; en Windows usa `run.py`.
+
+## 12. Idioma y Explain
+
+### Idioma
+
+- Inglés (**EN**) por defecto; español (**ES**) como segunda opción.
+- Selector `EN / ES` en el header (y en la portada, que no monta el header).
+- La elección se guarda en `localStorage['moviris.lang']`; también se puede abrir
+  una página con `?lang=en` o `?lang=es`.
+- Toda la interfaz usa un diccionario estático en `i18n.js`; no se usa Groq ni
+  ninguna API para traducir.
+- Números y fechas usan `Intl` con `en-US` / `es-EC`.
+- Los mensajes internos del ETL que vienen del backend conservan su idioma original;
+  las etiquetas y estados de la interfaz se traducen.
+
+### Explain / Explicar
+
+- Botón pequeño en la esquina inferior derecha de los cinco gráficos del Dashboard
+  y de los tres bloques del Calendario.
+- Envía `POST /api/explain` con título, filtros, idioma y un resumen compacto de los
+  datos (top N / selección actual; no arreglos enormes).
+- El backend llama una sola vez a Groq, sin historial, y pide una respuesta sencilla
+  de unas 100 palabras que explique qué muestra el gráfico, qué dicen los datos y
+  qué significan.
+- La ventana se cierra con **X** o **Esc**; muestra “Loading…” / “Cargando…” y un
+  error corto si falla.
+- Variables: `GROQ_LLM_TOKEN` y `GROQ_MODEL`. El endpoint no usa un modelo por
+  defecto: hay que configurar `GROQ_MODEL` con un modelo de la lista oficial de Groq.
+- Límite básico de peticiones y tamaño máximo del resumen. La clave nunca se envía
+  al navegador.
+
+Pruebas:
+
+```bash
+python -m unittest discover -s tests -v
+```

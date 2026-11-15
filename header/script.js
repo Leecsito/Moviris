@@ -43,10 +43,12 @@
     .then((html) => {
       mount.innerHTML = html;
       markCurrent();
+      if (window.MovirisI18n) window.MovirisI18n.apply(mount);
     })
     .catch(() => {
       // Respaldo mínimo para no dejar la página sin navegación
       mount.innerHTML =
         '<div class="hd-inner"><a class="hd-brand" href="/"><span class="hd-word">MOVIRIS</span></a></div>';
+      if (window.MovirisI18n) window.MovirisI18n.apply(mount);
     });
 })();

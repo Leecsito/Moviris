@@ -11,7 +11,9 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const fmt = new Intl.NumberFormat('es-EC');
+  const I18N = window.MovirisI18n;
+  const t = (text, vars) => I18N.t(text, vars);
+  const fmt = { format: (value) => I18N.number(value) };
   const STORE_KEY = 'moviris.aoi.v2';
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -176,7 +178,7 @@
     }
     $('map').classList.remove('is-drawing');
     $('btn-draw').classList.remove('is-on');
-    $('btn-draw').textContent = 'Dibujar área';
+    $('btn-draw').textContent = t('Dibujar área');
     $('draw-hint').hidden = true;
   }
 
@@ -186,7 +188,7 @@
     map.closePopup();
     $('map').classList.add('is-drawing');
     $('btn-draw').classList.add('is-on');
-    $('btn-draw').textContent = 'Cancelar';
+    $('btn-draw').textContent = t('Cancelar dibujo');
     $('draw-hint').hidden = false;
   }
 
@@ -201,7 +203,7 @@
     const b = event.latlng;
     stopDrawing();
     if (Math.abs(a.lat - b.lat) < 0.01 || Math.abs(a.lng - b.lng) < 0.01) {
-      setMsg('El área es demasiado pequeña. Dibuja un rectángulo más grande.', true);
+      setMsg(t('El área es demasiado pequeña. Dibuja un rectángulo más grande.'), true);
       return;
     }
     setAoi({
@@ -232,12 +234,12 @@
 
   function validate() {
     const aoi = readAoiInputs();
-    if (!Object.values(aoi).every(Number.isFinite)) return 'Completa los cuatro límites del área.';
+    if (!Object.values(aoi).every(Number.isFinite)) return t('Completa los cuatro límites del área.');
     if (aoi.south >= aoi.north || aoi.west >= aoi.east) {
-      return 'Área no válida: el sur debe ser menor que el norte y el oeste menor que el este.';
+      return t('Área no válida: el sur debe ser menor que el norte y el oeste menor que el este.');
     }
-    if (!DATE_RE.test($('from').value) || !DATE_RE.test($('to').value)) return 'Elige las dos fechas.';
-    if ($('from').value > $('to').value) return 'La fecha inicial debe ser anterior a la final.';
+    if (!DATE_RE.test($('from').value) || !DATE_RE.test($('to').value)) return t('Elige las dos fechas.');
+    if ($('from').value > $('to').value) return t('La fecha inicial debe ser anterior a la final.');
     return '';
   }
 
@@ -270,15 +272,16 @@
       persist();
     } catch (error) {
       if (error.name === 'AbortError') return;
-      setMsg(error.message || 'No se pudieron consultar los datos.', true);
+      console.error(error);
+      setMsg(t('No se pudieron cargar los datos.'), true);
     } finally {
       setLoading(false);
     }
   }
 
   function rangeLabel(from, to) {
-    if (from === to) return `${from} ${from === 1 ? 'día' : 'días'}`;
-    return `${from}–${to} días`;
+    if (from === to) return `${from} ${t(from === 1 ? 'día' : 'días')}`;
+    return `${from}–${to} ${t('días')}`;
   }
 
   function intensityScale(rows, idx) {
@@ -295,9 +298,9 @@
       return i;
     };
     const labels = colors.map((_, i) => {
-      if (n === 1) return `${days[0]} ${days[0] === 1 ? 'día' : 'días'} con focos`;
+      if (n === 1) return `${days[0]} ${t(days[0] === 1 ? 'día' : 'días')} ${t('con focos')}`;
       if (i === 0) return rangeLabel(1, breaks[0]);
-      if (i === n - 1) return `más de ${breaks[n - 2]} días`;
+      if (i === n - 1) return t('más de {n} días', { n: breaks[n - 2] });
       return rangeLabel(breaks[i - 1] + 1, breaks[i]);
     });
     return { colors, classOf, labels };
@@ -326,12 +329,15 @@
     const trunc = $('trunc');
     trunc.hidden = !data.truncated;
     if (data.truncated) {
-      trunc.textContent = `Se dibujan las ${fmt.format(data.shown)} celdas más activas de ${fmt.format(s.cells)}. Reduce el área o las fechas para verlas todas. El CSV incluye todo.`;
+      trunc.textContent = t('Se dibujan las {shown} celdas más activas de {total}. Reduce el área o las fechas para verlas todas. El CSV incluye todo.', {
+        shown: fmt.format(data.shown),
+        total: fmt.format(s.cells),
+      });
     }
 
     if (!rows.length) {
       renderLegend([]);
-      setMsg('No hay focos en esta área y rango de fechas.');
+      setMsg(t('No hay focos en esta área y rango de fechas.'));
       return;
     }
 
@@ -347,9 +353,9 @@
         return STATE_COLORS.normal;
       };
       renderLegend([
-        { color: STATE_COLORS.critical, label: 'Con días críticos' },
-        { color: STATE_COLORS.unusual, label: 'Con días inusuales (sin críticos)' },
-        { color: STATE_COLORS.normal, label: 'Solo días normales' },
+        { color: STATE_COLORS.critical, label: t('Con días críticos') },
+        { color: STATE_COLORS.unusual, label: t('Con días inusuales (sin críticos)') },
+        { color: STATE_COLORS.normal, label: t('Solo días normales') },
       ]);
     }
 
@@ -372,13 +378,13 @@
     L.popup()
       .setLatLng([r[idx.lat], r[idx.lon]])
       .setContent(
-        `<strong>Celda ${r[idx.lat].toFixed(3)}, ${r[idx.lon].toFixed(3)}</strong>` +
-        `Días con focos: ${fmt.format(r[idx.days])}<br>` +
-        `Detecciones: ${fmt.format(r[idx.detections])}<br>` +
-        `FRP máximo: ${frp === null ? '—' : `${frp.toFixed(1)} MW`}<br>` +
-        `Días críticos: ${fmt.format(r[idx.critical_days])}<br>` +
-        `Días inusuales: ${fmt.format(r[idx.unusual_days])}<br>` +
-        `Último foco: ${r[idx.last_date]}`
+        `<strong>${t('Celda')} ${I18N.coordinate(r[idx.lat])}, ${I18N.coordinate(r[idx.lon])}</strong>` +
+        `${t('Días con focos')}: ${fmt.format(r[idx.days])}<br>` +
+        `${t('Detecciones')}: ${fmt.format(r[idx.detections])}<br>` +
+        `${t('FRP máximo')}: ${frp === null ? '—' : `${I18N.decimal(frp)} MW`}<br>` +
+        `${t('Días críticos')}: ${fmt.format(r[idx.critical_days])}<br>` +
+        `${t('Días inusuales')}: ${fmt.format(r[idx.unusual_days])}<br>` +
+        `${t('Último foco')}: ${I18N.date(r[idx.last_date])}`
       )
       .openOn(map);
   }
@@ -397,7 +403,7 @@
     readControls();
     const button = $('btn-csv');
     button.disabled = true;
-    setMsg('Preparando el CSV…');
+    setMsg(t('Preparando el CSV…'));
     try {
       const res = await fetch(`/api/mapa/csv?${query()}`);
       if (!res.ok) {
@@ -407,14 +413,15 @@
       const blob = await res.blob();
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `moviris_celdas_${state.from}_${state.to}.csv`;
+      link.download = `moviris_cell_days_${state.from}_${state.to}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(link.href);
       setMsg('');
     } catch (error) {
-      setMsg(error.message || 'No se pudo generar el CSV.', true);
+      console.error(error);
+      setMsg(t('No se pudo generar el CSV.'), true);
     } finally {
       button.disabled = false;
     }
@@ -450,7 +457,7 @@
         setAoi(aoi, true);
         setMsg('');
       } else {
-        setMsg('Área no válida: el sur debe ser menor que el norte y el oeste menor que el este.', true);
+        setMsg(t('Área no válida: el sur debe ser menor que el norte y el oeste menor que el este.'), true);
       }
     });
   }
@@ -484,7 +491,8 @@
     try {
       meta = await getJson('/api/mapa/meta');
     } catch (error) {
-      setMsg(error.message, true);
+      console.error(error);
+      setMsg(t('No se pudieron cargar los datos.'), true);
       return;
     }
 

@@ -8,6 +8,8 @@
   <link rel="icon" href="/ico.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/header/style.css">
   <link rel="stylesheet" href="/dashboard/style.css">
+  <link rel="stylesheet" href="/explain.css">
+  <script src="/i18n.js"></script>
 </head>
 <body>
   <div id="site-header"></div>
@@ -67,6 +69,7 @@
         </header>
         <div class="chart-box"><canvas id="c-years" role="img" aria-label="Barras de actividad por año"></canvas></div>
         <p class="caption" id="cap-years"></p>
+        <button class="explain-btn" type="button" data-explain="years" aria-label="Explicar este gráfico">Explicar</button>
       </article>
 
       <article class="chart">
@@ -76,6 +79,7 @@
         </header>
         <div class="chart-box"><canvas id="c-anomaly" role="img" aria-label="Desviación de cada año frente a la media"></canvas></div>
         <p class="caption" id="cap-anomaly"></p>
+        <button class="explain-btn" type="button" data-explain="anomaly" aria-label="Explicar este gráfico">Explicar</button>
       </article>
 
       <article class="chart">
@@ -89,6 +93,7 @@
         </label>
         <div class="chart-box"><canvas id="c-season" role="img" aria-label="Mediana mensual y año elegido"></canvas></div>
         <p class="caption" id="cap-season"></p>
+        <button class="explain-btn" type="button" data-explain="season" aria-label="Explicar este gráfico">Explicar</button>
       </article>
 
       <article class="chart">
@@ -98,6 +103,7 @@
         </header>
         <div class="chart-box"><canvas id="c-index" role="img" aria-label="Índice de detecciones y de celdas-día activas"></canvas></div>
         <p class="caption" id="cap-index"></p>
+        <button class="explain-btn" type="button" data-explain="index" aria-label="Explicar este gráfico">Explicar</button>
       </article>
 
       <article class="chart">
@@ -107,6 +113,7 @@
         </header>
         <div class="chart-box"><canvas id="c-coverage" role="img" aria-label="Celdas-día por familia de sensores"></canvas></div>
         <p class="caption" id="cap-coverage"></p>
+        <button class="explain-btn" type="button" data-explain="coverage" aria-label="Explicar este gráfico">Explicar</button>
       </article>
     </section>
 
@@ -117,6 +124,7 @@
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="/explain.js"></script>
   <script src="/header/script.js"></script>
   <script src="/dashboard/script.js"></script>
 </body>
