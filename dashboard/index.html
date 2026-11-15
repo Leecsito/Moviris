@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dashboard de MOVIRIS: patrones históricos, anomalías y estacionalidad de los focos de calor en tu área de interés.">
+  <title>Dashboard · MOVIRIS</title>
+  <link rel="icon" href="/ico.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/header/style.css">
+  <link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <!-- Cabecera de página -->
+    <section class="wrap top">
+      <div class="top-text">
+        <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span>Dashboard</p>
+        <h1>Patrones históricos del fuego</h1>
+        <p class="aoi">
+          <span id="aoi-text">Cargando área…</span>
+          <a href="/mapa/">Cambiar en el mapa</a>
+        </p>
+      </div>
+
+      <div class="controls">
+        <label class="field">
+          <span>Medir</span>
+          <select id="metric">
+            <option value="cell_days">Celdas-día activas</option>
+            <option value="detections">Detecciones</option>
+            <option value="critical">Celdas-día críticas</option>
+            <option value="unusual">Celdas-día inusuales</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Confianza mínima</span>
+          <select id="conf">
+            <option value="0">Todas (incluye baja)</option>
+            <option value="1">Nominal y alta</option>
+            <option value="2">Solo alta</option>
+          </select>
+        </label>
+        <button class="btn btn--line" id="btn-csv" type="button">CSV de celdas-día</button>
+        <button class="btn btn--line" id="btn-summary" type="button">CSV del resumen anual</button>
+      </div>
+    </section>
+
+    <p class="wrap msg" id="msg" role="status" aria-live="polite" hidden></p>
+
+    <!-- Indicadores -->
+    <section class="wrap kpis" aria-label="Indicadores del área" aria-live="polite">
+      <div class="kpi"><span class="kpi-label">Celdas con focos</span><strong id="k-cells">—</strong></div>
+      <div class="kpi"><span class="kpi-label">Celdas-día activas</span><strong id="k-days">—</strong></div>
+      <div class="kpi"><span class="kpi-label">Detecciones</span><strong id="k-det">—</strong></div>
+      <div class="kpi"><span class="kpi-label">Celdas-día críticas</span><strong id="k-crit">—</strong></div>
+      <div class="kpi"><span class="kpi-label">Celdas-día inusuales</span><strong id="k-unus">—</strong></div>
+    </section>
+
+    <!-- Gráficos -->
+    <section class="wrap charts">
+      <article class="chart chart--wide">
+        <header class="chart-head">
+          <h2 class="label"><span>01</span>Actividad por año</h2>
+          <button class="btn-png" type="button" data-chart="years">PNG</button>
+        </header>
+        <div class="chart-box"><canvas id="c-years" role="img" aria-label="Barras de actividad por año"></canvas></div>
+        <p class="caption" id="cap-years"></p>
+      </article>
+
+      <article class="chart">
+        <header class="chart-head">
+          <h2 class="label"><span>02</span>Anomalía anual</h2>
+          <button class="btn-png" type="button" data-chart="anomaly">PNG</button>
+        </header>
+        <div class="chart-box"><canvas id="c-anomaly" role="img" aria-label="Desviación de cada año frente a la media"></canvas></div>
+        <p class="caption" id="cap-anomaly"></p>
+      </article>
+
+      <article class="chart">
+        <header class="chart-head">
+          <h2 class="label"><span>03</span>Estacionalidad</h2>
+          <button class="btn-png" type="button" data-chart="season">PNG</button>
+        </header>
+        <label class="inline-field">
+          <span>Comparar con el año</span>
+          <select id="year-sel"></select>
+        </label>
+        <div class="chart-box"><canvas id="c-season" role="img" aria-label="Mediana mensual y año elegido"></canvas></div>
+        <p class="caption" id="cap-season"></p>
+      </article>
+
+      <article class="chart">
+        <header class="chart-head">
+          <h2 class="label"><span>04</span>Detecciones frente a celdas-día</h2>
+          <button class="btn-png" type="button" data-chart="index">PNG</button>
+        </header>
+        <div class="chart-box"><canvas id="c-index" role="img" aria-label="Índice de detecciones y de celdas-día activas"></canvas></div>
+        <p class="caption" id="cap-index"></p>
+      </article>
+
+      <article class="chart">
+        <header class="chart-head">
+          <h2 class="label"><span>05</span>Quién vio cada celda-día</h2>
+          <button class="btn-png" type="button" data-chart="coverage">PNG</button>
+        </header>
+        <div class="chart-box"><canvas id="c-coverage" role="img" aria-label="Celdas-día por familia de sensores"></canvas></div>
+        <p class="caption" id="cap-coverage"></p>
+      </article>
+    </section>
+
+    <p class="wrap foot">
+      Cada celda mide ~1 km (0,01°). Media, mediana y anomalías usan solo años completos. «Críticas» e «inusuales» vienen del ETL:
+      comparan cada semana con el historial de su celda. Un foco de calor no siempre es un incendio; los datos NRT son preliminares.
+    </p>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="/header/script.js"></script>
+  <script src="/dashboard/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MOVIRIS · ETL de focos de calor: sube los CSV de FIRMS y carga los datos limpios a Turso.">
+  <title>MOVIRIS · ETL de focos de calor</title>
+  <link rel="icon" href="/ico.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/header/style.css">
+  <link rel="stylesheet" href="/etl/style.css">
+</head>
+<body>
+  <!-- Componente compartido: el HTML se inyecta desde /header/index.html -->
+  <div id="site-header"></div>
+
+  <main class="page">
+    <div class="etl-toolbar">
+      <h1 class="etl-title">ETL de focos de calor</h1>
+      <div class="connection" id="connection" data-state="checking" title="Estado de la fuente de datos">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="connectionText">Verificando…</span>
+      </div>
+    </div>
+
+    <section class="card" aria-labelledby="filesTitle">
+      <div class="card-head">
+        <div>
+          <h2 id="filesTitle">Archivos de entrada</h2>
+          <p>Sube los CSV de FIRMS (MODIS o VIIRS). También puedes subir un ZIP.</p>
+        </div>
+        <span class="file-count" id="fileCount">0 archivos</span>
+      </div>
+
+      <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Seleccionar archivos CSV o ZIP">
+        <input type="file" id="fileInput" accept=".csv,.zip" multiple hidden>
+        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p class="drop-title"><strong>Arrastra los archivos aquí</strong> o <button class="link-button" id="browseBtn" type="button">selecciónalos</button></p>
+        <p class="drop-hint">CSV o ZIP · hasta 512 MB por archivo</p>
+      </div>
+
+      <p class="upload-message" id="uploadMessage" role="status" aria-live="polite"></p>
+      <ul class="file-list" id="fileList" aria-label="Archivos subidos"></ul>
+      <p class="empty-state" id="emptyFiles">Todavía no hay archivos.</p>
+    </section>
+
+    <section class="card" aria-labelledby="runTitle">
+      <div class="card-head card-head--run">
+        <div>
+          <h2 id="runTitle">Proceso ETL</h2>
+          <p>Procesa los archivos y guarda el resultado limpio.</p>
+        </div>
+        <button class="primary-button" id="runBtn" type="button" disabled>Ejecutar ETL</button>
+      </div>
+
+      <div class="progress is-hidden" id="progressPanel" aria-live="polite">
+        <div class="progress-head">
+          <span id="stageLabel">En espera</span>
+          <span id="percentLabel">0%</span>
+        </div>
+        <div class="progress-track" id="progressTrack" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <ol class="steps" id="steps">
+          <li data-step="extract"><span class="step-mark" aria-hidden="true"></span><span>Extract</span></li>
+          <li data-step="transform"><span class="step-mark" aria-hidden="true"></span><span>Transform</span></li>
+          <li data-step="baseline"><span class="step-mark" aria-hidden="true"></span><span>Baseline</span></li>
+          <li data-step="status"><span class="step-mark" aria-hidden="true"></span><span>Estado</span></li>
+          <li data-step="load"><span class="step-mark" aria-hidden="true"></span><span>Load</span></li>
+        </ol>
+        <p class="stage-message" id="stageMessage"></p>
+      </div>
+
+      <div class="alert is-hidden" id="errorBox" role="alert">
+        <strong>No se pudo completar el proceso</strong>
+        <p id="errorText"></p>
+        <p class="alert-hint is-hidden" id="errorHint"></p>
+      </div>
+
+      <div class="summary is-hidden" id="summaryPanel">
+        <div class="summary-head">
+          <h3>Resumen del proceso</h3>
+          <span id="summaryTime"></span>
+        </div>
+        <dl class="summary-grid">
+          <div>
+            <dt>Filas leídas</dt>
+            <dd id="sumRead">—</dd>
+          </div>
+          <div>
+            <dt>Celda-días cargados</dt>
+            <dd id="sumDaily">—</dd>
+          </div>
+          <div>
+            <dt>Filas de línea base</dt>
+            <dd id="sumBaseline">—</dd>
+          </div>
+          <div>
+            <dt>Celdas en la máscara</dt>
+            <dd id="sumMask">—</dd>
+          </div>
+        </dl>
+        <p class="summary-note" id="summaryNote"></p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>MOVIRIS · ETL</span>
+      <span id="footerStatus">Modo local</span>
+    </footer>
+  </main>
+
+  <script src="/header/script.js"></script>
+  <script src="/etl/script.js"></script>
+</body>
+</html>

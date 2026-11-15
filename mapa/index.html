@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Mapa de focos de calor de MOVIRIS: elige un área de interés y un rango de fechas.">
+  <title>Mapa · MOVIRIS</title>
+  <link rel="icon" href="/ico.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+  <link rel="stylesheet" href="/header/style.css">
+  <link rel="stylesheet" href="/mapa/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="app">
+    <aside class="panel" aria-label="Controles del mapa">
+
+      <section class="block">
+        <h2 class="label"><span>01</span>Área de interés</h2>
+        <div class="btn-row">
+          <button class="btn btn--dark" id="btn-draw" type="button">Dibujar área</button>
+          <button class="btn btn--line" id="btn-clear" type="button">Zona por defecto</button>
+        </div>
+        <p class="hint" id="draw-hint" hidden>Haz clic en dos esquinas opuestas del mapa. Esc cancela.</p>
+
+        <label class="field">
+          <span>Zona rápida</span>
+          <select id="preset">
+            <option value="">Elegir…</option>
+            <option value="ecuador">Ecuador continental</option>
+            <option value="galapagos">Galápagos</option>
+            <option value="chimborazo">Chimborazo (aprox.)</option>
+          </select>
+        </label>
+
+        <div class="coords">
+          <label class="field"><span>Norte</span><input id="north" type="number" step="0.01" min="-90" max="90" inputmode="decimal"></label>
+          <label class="field"><span>Sur</span><input id="south" type="number" step="0.01" min="-90" max="90" inputmode="decimal"></label>
+          <label class="field"><span>Oeste</span><input id="west" type="number" step="0.01" min="-180" max="180" inputmode="decimal"></label>
+          <label class="field"><span>Este</span><input id="east" type="number" step="0.01" min="-180" max="180" inputmode="decimal"></label>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="label"><span>02</span>Fechas</h2>
+        <div class="coords">
+          <label class="field"><span>Desde</span><input id="from" type="date"></label>
+          <label class="field"><span>Hasta</span><input id="to" type="date"></label>
+        </div>
+        <div class="chips" role="group" aria-label="Rangos rápidos">
+          <button class="chip" type="button" data-range="90">90 días</button>
+          <button class="chip" type="button" data-range="365">1 año</button>
+          <button class="chip" type="button" data-range="all">Todo</button>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="label"><span>03</span>Vista</h2>
+        <label class="field">
+          <span>Confianza mínima</span>
+          <select id="conf">
+            <option value="0">Todas (incluye baja)</option>
+            <option value="1">Nominal y alta</option>
+            <option value="2">Solo alta</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Colorear por</span>
+          <select id="color-mode">
+            <option value="state">Estado (crítico / inusual)</option>
+            <option value="intensity">Intensidad (días con focos)</option>
+          </select>
+        </label>
+      </section>
+
+      <div class="btn-row">
+        <button class="btn btn--primary" id="btn-apply" type="button">Aplicar</button>
+        <button class="btn btn--line" id="btn-csv" type="button">Descargar CSV</button>
+      </div>
+
+      <p class="msg" id="msg" role="status" aria-live="polite" hidden></p>
+
+      <section class="block results" aria-live="polite">
+        <h2 class="label"><span>04</span>Resultado</h2>
+        <dl class="kpis">
+          <div><dt>Celdas con focos</dt><dd id="k-cells">—</dd></div>
+          <div><dt>Celdas-día activas</dt><dd id="k-days">—</dd></div>
+          <div><dt>Detecciones</dt><dd id="k-det">—</dd></div>
+          <div><dt>Días críticos</dt><dd id="k-crit">—</dd></div>
+          <div><dt>Días inusuales</dt><dd id="k-unus">—</dd></div>
+        </dl>
+        <p class="hint" id="trunc" hidden></p>
+        <ul class="legend" id="legend" aria-label="Leyenda"></ul>
+      </section>
+
+      <p class="foot">
+        Cada celda mide ~1 km (0,01°). El CSV contiene una fila por celda y día, no las detecciones originales.
+        Un foco de calor no siempre es un incendio; los datos NRT son preliminares.
+      </p>
+    </aside>
+
+    <div class="map-wrap">
+      <div id="map" aria-label="Mapa de focos de calor"></div>
+      <div class="map-loading" id="loading" hidden>Cargando…</div>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="/header/script.js"></script>
+  <script src="/mapa/script.js"></script>
+</body>
+</html>

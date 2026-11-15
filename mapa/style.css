@@ -1,0 +1,443 @@
+/* ==========================================================================
+   MOVIRIS · Mapa
+   Panel y página en verde claro; el header (componente aparte) en verde oscuro.
+   ========================================================================== */
+
+:root {
+  --bg: #EBEBD8;
+  --card: #F7F7EC;
+  --ink: #2A3520;
+  --primary: #637545;
+  --primary-dark: #455230;
+  --secondary: #6B7557;
+  --border: #9BA685;
+  --error: #A94438;
+
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+  --hd-h: 69px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--primary-dark);
+  font-family: var(--font);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h2,
+p,
+dl,
+dd,
+ul {
+  margin: 0;
+  padding: 0;
+}
+
+ul {
+  list-style: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Estructura: panel a la izquierda, mapa a la derecha
+   -------------------------------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 372px minmax(0, 1fr);
+  height: calc(100vh - var(--hd-h));
+  height: calc(100dvh - var(--hd-h));
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-height: 0;
+  padding: 22px 22px 28px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.map-wrap {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  background: #dfe3d2;
+}
+
+.map-loading {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 800;
+  padding: 8px 16px;
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+/* --------------------------------------------------------------------------
+   Bloques y controles
+   -------------------------------------------------------------------------- */
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.block:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--primary);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.label span {
+  color: var(--secondary);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field > span {
+  color: var(--secondary);
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 0.9rem;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--primary);
+}
+
+.coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn {
+  flex: 1 1 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn--primary {
+  background: var(--primary-dark);
+  color: var(--bg);
+}
+
+.btn--primary:hover {
+  background: var(--ink);
+}
+
+.btn--dark {
+  background: var(--primary);
+  color: var(--card);
+}
+
+.btn--dark:hover,
+.btn--dark.is-on {
+  background: var(--ink);
+}
+
+.btn--line {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--primary-dark);
+}
+
+.btn--line:hover {
+  background: var(--card);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--primary-dark);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: var(--card);
+}
+
+.hint {
+  color: var(--secondary);
+  font-size: 0.82rem;
+}
+
+.msg {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--primary-dark);
+  font-size: 0.86rem;
+}
+
+.msg.is-error {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+/* --------------------------------------------------------------------------
+   Resultados y leyenda
+   -------------------------------------------------------------------------- */
+
+.kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.kpis > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 10px 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.kpis > div:nth-child(even) {
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.kpis dt {
+  color: var(--secondary);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.kpis dd {
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary-dark);
+  font-size: 0.84rem;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.foot {
+  color: var(--secondary);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+   Mapa: dibujo y ventanas emergentes
+   -------------------------------------------------------------------------- */
+
+#map.is-drawing,
+#map.is-drawing .leaflet-interactive {
+  cursor: crosshair;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.leaflet-popup-content strong {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+}
+
+.leaflet-popup-tip {
+  background: var(--card);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive: el mapa va arriba y el panel debajo
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  :root {
+    --hd-h: 108px;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+
+  .map-wrap {
+    order: -1;
+    height: 60vh;
+    height: 60dvh;
+    min-height: 340px;
+  }
+
+  .panel {
+    overflow: visible;
+    border-right: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 600px) {
+  .map-wrap {
+    height: 55vh;
+    height: 55dvh;
+    min-height: 300px;
+    max-height: 520px;
+  }
+
+  .panel {
+    gap: 18px;
+    padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .coords {
+    gap: 8px;
+  }
+
+  .btn {
+    flex: 1 1 100%;
+  }
+
+  .chip {
+    flex: 1 1 auto;
+  }
+
+  .label {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+  }
+
+  .kpis dd {
+    font-size: 1.16rem;
+  }
+
+  .leaflet-control-attribution {
+    font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}

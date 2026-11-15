@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MOVIRIS une los datos de MODIS y VIIRS en un solo calendario de actividad de quema para Ecuador.">
+  <title>Inicio · MOVIRIS</title>
+  <link rel="icon" href="/ico.svg" type="image/svg+xml">
+  <script>
+    document.documentElement.classList.replace('no-js', 'js');
+  </script>
+  <link rel="stylesheet" href="/header/style.css">
+  <link rel="stylesheet" href="/inicio/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <!-- Gancho -->
+    <section class="wrap hero">
+      <p class="eyebrow reveal"><span class="eyebrow-line" aria-hidden="true"></span>Focos de calor · Ecuador · 2012–2026</p>
+      <h1 class="title reveal">
+        <span>Cinco satélites.</span>
+        <span>Dos sensores.</span>
+        <span class="accent">Una sola historia del fuego.</span>
+      </h1>
+      <p class="lead reveal">
+        MODIS y VIIRS llevan años vigilando Ecuador, pero no se pueden comparar.
+        MOVIRIS los une para que veas cuándo y dónde arde, y cuándo algo se sale de lo normal.
+      </p>
+      <div class="actions reveal">
+        <a class="btn btn--primary" href="/mapa/">
+          <span>Elige tu zona en el mapa</span>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="btn btn--ghost" href="/calendario/">Ver el calendario</a>
+      </div>
+    </section>
+
+    <!-- El problema -->
+    <section class="wrap row reveal">
+      <h2 class="label"><span>01</span>El problema</h2>
+      <div class="body">
+        <p class="big">
+          Los satélites llevan más de dos décadas rastreando el fuego, pero cada sensor lo cuenta a su manera.
+          En Ecuador hay <strong>560.264 detecciones</strong> de <strong>5 satélites</strong> que no se pueden sumar sin más.
+        </p>
+        <p class="small">Sin una imagen consistente, nadie sabe con certeza cuándo y dónde se quema.</p>
+      </div>
+    </section>
+
+    <!-- La solución -->
+    <section class="wrap row reveal">
+      <h2 class="label"><span>02</span>La solución</h2>
+      <div class="body">
+        <p class="big">Ponerlos a hablar el mismo idioma.</p>
+        <div class="steps">
+          <article class="step">
+            <svg class="grid-art" viewBox="0 0 320 120" role="img" aria-label="Un foco visto por MODIS y por VIIRS cae en una misma celda de la malla">
+              <rect class="g-line" x="4" y="10" width="80" height="80"/>
+              <circle class="g-ember" cx="44" cy="50" r="5"/>
+              <rect class="g-line" x="100" y="10" width="80" height="80"/>
+              <path class="g-line g-thin" d="M126.7 10v80M153.3 10v80M100 36.7h80M100 63.3h80"/>
+              <rect class="g-fill-ember" x="126.7" y="36.7" width="26.6" height="26.6"/>
+              <path class="g-arrow" d="M192 50h28M214 44l6 6-6 6"/>
+              <rect class="g-cell" x="232" y="10" width="80" height="80"/>
+              <circle class="g-ember" cx="272" cy="50" r="5"/>
+              <text class="g-text" x="4" y="110">MODIS · ~1 km</text>
+              <text class="g-text" x="100" y="110">VIIRS · ~375 m</text>
+              <text class="g-text" x="232" y="110">MALLA · 0,01°</text>
+            </svg>
+            <h3><span>01</span>Una sola malla</h3>
+            <p>Cada foco cae en una celda de ~1 km, sin importar qué satélite lo vio.</p>
+          </article>
+
+          <article class="step">
+            <div class="chips" aria-hidden="true">
+              <span class="chip">MODIS 0–100</span>
+              <span class="chip">VIIRS l · n · h</span>
+            </div>
+            <div class="chips" aria-hidden="true">
+              <span class="chip chip--solid">Baja · Nominal · Alta</span>
+            </div>
+            <h3><span>02</span>Una sola confianza</h3>
+            <p>Una escala común de tres niveles para los dos sensores.</p>
+          </article>
+
+          <article class="step">
+            <div class="chips" aria-hidden="true">
+              <span class="chip chip--ok">Normal</span>
+              <span class="chip chip--critical">Crítica</span>
+              <span class="chip chip--unusual">Inusual</span>
+            </div>
+            <h3><span>03</span>Una sola vara</h3>
+            <p>Cada semana se compara con la historia de esa misma celda y se marca como Normal, Crítica o Inusual.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Para quién -->
+    <section class="wrap row reveal">
+      <h2 class="label"><span>03</span>Para quién</h2>
+      <div class="body">
+        <p class="big">Para quien necesita decidir antes de que el fuego avance.</p>
+        <ul class="people">
+          <li><strong>Alerta temprana</strong><span>Descubre en qué semanas una zona suele encenderse.</span></li>
+          <li><strong>Respuesta a emergencias</strong><span>Detecta al instante lo que se sale de lo habitual.</span></li>
+          <li><strong>Científicos</strong><span>Patrones históricos comparables, de 2012 a 2026.</span></li>
+          <li><strong>Administradores de tierras</strong><span>Incendios forestales y quemas agrícolas en un mismo calendario.</span></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- Cierre -->
+  <footer class="closing">
+    <div class="wrap closing-inner">
+      <div class="closing-cta">
+        <p class="closing-title">¿Dónde quieres mirar?</p>
+        <a class="btn btn--light" href="/mapa/">
+          <span>Elige tu zona en el mapa</span>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+      <p class="note">
+        Fuente: NASA FIRMS. Un foco de calor no siempre es un incendio, y los datos recientes (NRT) son preliminares.
+      </p>
+    </div>
+  </footer>
+
+  <script src="/header/script.js"></script>
+  <script src="/inicio/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,434 @@
+/* ==========================================================================
+   MOVIRIS · Bienvenida (una sola pantalla, sin scroll)
+   Fondo verde oscuro para contrastar con la app (tonos de verde claro).
+   Paleta base: #EBEBD8 · #637545 · #455230 · #9BA685
+   ========================================================================== */
+
+:root {
+  --bg: #131A0E;
+  --cream: #EBEBD8;
+  --primary: #637545;
+  --primary-dark: #455230;
+  --sage: #9BA685;
+  --muted: #B4BDA1;
+  --ember: #C9573F;
+  --line: rgba(155, 166, 133, 0.2);
+
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 82% 12%, rgba(99, 117, 69, 0.22), transparent 70%),
+    var(--bg);
+  color: var(--cream);
+  font-family: var(--font);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sage);
+  outline-offset: 4px;
+}
+
+::selection {
+  background: rgba(155, 166, 133, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   Fondo: cuadrícula + red de puntos
+   -------------------------------------------------------------------------- */
+
+.grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.35;
+  -webkit-mask-image: radial-gradient(ellipse at 70% 30%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 70% 30%, #000 0%, transparent 75%);
+}
+
+.network {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Una sola pantalla: contenido + datos; sin header ni footer */
+.page {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  width: min(1240px, 100%);
+  min-height: 100vh;
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 48px);
+  transition: opacity 0.3s ease;
+}
+
+/* --------------------------------------------------------------------------
+   Contenido: texto a la izquierda, satélite a la derecha
+   -------------------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  align-items: stretch;
+  gap: clamp(16px, 4vw, 56px);
+  min-height: 0;
+  padding: clamp(10px, 3vh, 36px) 0;
+}
+
+.copy {
+  align-self: center;
+  min-width: 0;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: clamp(12px, 2.6vh, 26px);
+  color: var(--sage);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.eyebrow-line {
+  display: block;
+  width: 36px;
+  height: 1px;
+  background: var(--sage);
+}
+
+.headline {
+  font-size: clamp(2.3rem, min(6.4vw, 10vh), 5.8rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.headline .line {
+  display: block;
+}
+
+.headline .line-inner {
+  display: block;
+}
+
+.headline em {
+  color: var(--sage);
+  font-style: normal;
+}
+
+.subtitle {
+  max-width: 520px;
+  margin-top: clamp(14px, 2.6vh, 28px);
+  color: var(--muted);
+  font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  margin-top: clamp(18px, 3.4vh, 38px);
+}
+
+/* Botón de esquinas cortadas */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 50px;
+  padding: 0 26px;
+  background: var(--cream);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  transition: background 0.2s ease;
+}
+
+.cta svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+.cta:hover {
+  background: var(--sage);
+}
+
+.cta:hover svg {
+  transform: translateX(4px);
+}
+
+.cta-note {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   Satélite (se adapta al espacio disponible)
+   -------------------------------------------------------------------------- */
+
+.art {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.sat {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 520px;
+  max-height: 520px;
+}
+
+.sat-ticks {
+  stroke: var(--sage);
+  stroke-opacity: 0.5;
+}
+
+.sat-ring {
+  stroke: var(--sage);
+  stroke-opacity: 0.3;
+}
+
+.sat-orbit {
+  stroke: var(--sage);
+  stroke-opacity: 0.6;
+}
+
+.sat-earth {
+  fill: var(--cream);
+}
+
+.sat-node {
+  fill: var(--bg);
+  stroke: var(--ember);
+}
+
+.sat-parts {
+  fill: var(--ember);
+}
+
+.orb {
+  transform-box: view-box;
+  transform-origin: 120px 120px;
+  animation: orbit 48s linear infinite;
+}
+
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Datos (una sola fila compacta)
+   -------------------------------------------------------------------------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line);
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: clamp(10px, 1.8vh, 16px) 16px clamp(10px, 1.8vh, 16px) 0;
+}
+
+.fact + .fact {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.fact strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.fact span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   Animación de entrada y salida
+   -------------------------------------------------------------------------- */
+
+.js .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--delay, 0s);
+}
+
+.js.is-loaded .reveal {
+  opacity: 1;
+  transform: none;
+}
+
+.js .line-inner {
+  opacity: 0;
+  transform: translateY(0.32em);
+  transition:
+    opacity 0.85s ease,
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--delay, 0s);
+}
+
+.js.is-loaded .line-inner {
+  opacity: 1;
+  transform: none;
+}
+
+.is-leaving .page {
+  opacity: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+/* Tablet y móvil: texto arriba, satélite en el espacio sobrante */
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .headline {
+    font-size: clamp(2.2rem, min(11vw, 8.5vh), 4rem);
+  }
+
+  .art {
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar-meta {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+  }
+
+  .cta-note {
+    display: none;
+  }
+
+  .actions {
+    margin-top: 18px;
+  }
+
+  .fact strong {
+    font-size: 0.8rem;
+  }
+
+  .fact span {
+    font-size: 0.54rem;
+    letter-spacing: 0.08em;
+  }
+
+  .fact,
+  .fact + .fact {
+    padding-right: 8px;
+    padding-left: 10px;
+  }
+
+  .fact:first-child {
+    padding-left: 0;
+  }
+}
+
+/* Pantallas bajas: el satélite se oculta para que todo quepa sin scroll */
+@media (max-width: 860px) and (max-height: 660px) {
+  .art {
+    display: none;
+  }
+}
+
+@media (max-height: 560px) {
+  .subtitle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal,
+  .js .line-inner {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .orb {
+    animation: none;
+  }
+
+  .page,
+  .cta,
+  .cta svg {
+    transition: none !important;
+  }
+}

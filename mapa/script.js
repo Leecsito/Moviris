@@ -1,0 +1,500 @@
+/* ==========================================================================
+   MOVIRIS · Mapa
+   Área de interés (dibujada, coordenadas o zonas rápidas), rango de fechas,
+   celdas de focos y descarga CSV.
+
+   Estado compartido con Calendario y Dashboard:
+     localStorage['moviris.aoi'] = { south, north, west, east, from, to, conf }
+   ========================================================================== */
+
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const fmt = new Intl.NumberFormat('es-EC');
+  const STORE_KEY = 'moviris.aoi';
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+  const DEFAULT_AOI = { south: -5.01, north: 1.45, west: -81.1, east: -75.2 };
+  const PRESETS = {
+    ecuador: DEFAULT_AOI,
+    galapagos: { south: -1.6, north: 1.0, west: -92.2, east: -89.0 },
+    chimborazo: { south: -2.5, north: -1.55, west: -79.3, east: -78.5 },
+  };
+
+  const STATE_COLORS = { critical: '#A94438', unusual: '#B58A2E', normal: '#637545' };
+  // Rampa secuencial YlOrBr (ColorBrewer), apta para daltonismo
+  const RAMP = ['#fed98e', '#fec44f', '#fe9929', '#d95f0e', '#993404'];
+
+  const AOI_STYLE = {
+    color: '#455230', weight: 2, dashArray: '6 4',
+    fillColor: '#637545', fillOpacity: 0.06, interactive: false,
+  };
+  const PREVIEW_STYLE = { ...AOI_STYLE, dashArray: '3 3', fillOpacity: 0.12 };
+
+  const state = { aoi: { ...DEFAULT_AOI }, from: '', to: '', conf: '0', color: 'state' };
+  let meta = null;
+  let lastData = null;
+  let aoiRect = null;
+  let cellsLayer = null;
+  let controller = null;
+
+  // Dibujo del área: dos clics en esquinas opuestas
+  let drawing = false;
+  let corner = null;
+  let preview = null;
+
+  // -------------------------------------------------------------------------
+  // Utilidades
+  // -------------------------------------------------------------------------
+
+  const round3 = (v) => Math.round(v * 1000) / 1000;
+
+  function addDays(iso, days) {
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function setMsg(text, isError = false) {
+    const el = $('msg');
+    el.textContent = text || '';
+    el.hidden = !text;
+    el.classList.toggle('is-error', Boolean(text) && isError);
+  }
+
+  function setLoading(on) {
+    $('loading').hidden = !on;
+    $('btn-apply').disabled = on;
+  }
+
+  async function getJson(url, options) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error ${res.status} al consultar los datos.`);
+    return data;
+  }
+
+  // -------------------------------------------------------------------------
+  // Estado inicial: URL, luego lo guardado, luego valores por defecto
+  // -------------------------------------------------------------------------
+
+  function readInitial() {
+    const params = new URLSearchParams(window.location.search);
+    let saved = {};
+    try {
+      saved = JSON.parse(window.localStorage.getItem(STORE_KEY) || '{}') || {};
+    } catch (e) {
+      saved = {};
+    }
+    const pick = (key) => (params.has(key) ? params.get(key) : saved[key]);
+
+    const aoi = {};
+    for (const key of ['south', 'north', 'west', 'east']) aoi[key] = parseFloat(pick(key));
+    if (Object.values(aoi).every(Number.isFinite) && aoi.south < aoi.north && aoi.west < aoi.east) {
+      state.aoi = aoi;
+    }
+
+    const from = pick('from');
+    const to = pick('to');
+    if (DATE_RE.test(from || '') && DATE_RE.test(to || '') && from <= to) {
+      state.from = from;
+      state.to = to;
+    }
+    const conf = String(pick('conf'));
+    if (['0', '1', '2'].includes(conf)) state.conf = conf;
+  }
+
+  function persist() {
+    const data = { ...state.aoi, from: state.from, to: state.to, conf: state.conf };
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    } catch (e) { /* almacenamiento no disponible */ }
+    window.history.replaceState(null, '', `${window.location.pathname}?${new URLSearchParams(data)}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Mapa
+  // -------------------------------------------------------------------------
+
+  const map = L.map('map', { preferCanvas: true, minZoom: 3 }).setView([-1.5, -78.5], 7);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  // Leaflet necesita recalcular su tamaño cuando cambia el layout responsive
+  // (por ejemplo, al pasar de panel lateral a mapa arriba del panel).
+  const mapWrap = document.querySelector('.map-wrap');
+  let mapResizeTimer = null;
+
+  function refreshMapSize() {
+    window.clearTimeout(mapResizeTimer);
+    mapResizeTimer = window.setTimeout(() => {
+      map.invalidateSize({ pan: false });
+    }, 120);
+  }
+
+  if ('ResizeObserver' in window && mapWrap) {
+    new ResizeObserver(refreshMapSize).observe(mapWrap);
+  } else {
+    window.addEventListener('resize', refreshMapSize, { passive: true });
+  }
+  window.addEventListener('orientationchange', refreshMapSize, { passive: true });
+
+  function setAoi(aoi, fit) {
+    state.aoi = { ...aoi };
+    for (const key of ['north', 'south', 'west', 'east']) $(key).value = round3(aoi[key]);
+    const bounds = [[aoi.south, aoi.west], [aoi.north, aoi.east]];
+    if (aoiRect) aoiRect.setBounds(bounds);
+    else aoiRect = L.rectangle(bounds, AOI_STYLE).addTo(map);
+    if (fit) map.fitBounds(bounds, { padding: [24, 24] });
+  }
+
+  function readAoiInputs() {
+    const aoi = {};
+    for (const key of ['south', 'north', 'west', 'east']) aoi[key] = parseFloat($(key).value);
+    return aoi;
+  }
+
+  // -------------------------------------------------------------------------
+  // Dibujo del área
+  // -------------------------------------------------------------------------
+
+  function stopDrawing() {
+    drawing = false;
+    corner = null;
+    if (preview) {
+      map.removeLayer(preview);
+      preview = null;
+    }
+    $('map').classList.remove('is-drawing');
+    $('btn-draw').classList.remove('is-on');
+    $('btn-draw').textContent = 'Dibujar área';
+    $('draw-hint').hidden = true;
+  }
+
+  function startDrawing() {
+    stopDrawing();
+    drawing = true;
+    map.closePopup();
+    $('map').classList.add('is-drawing');
+    $('btn-draw').classList.add('is-on');
+    $('btn-draw').textContent = 'Cancelar';
+    $('draw-hint').hidden = false;
+  }
+
+  map.on('click', (event) => {
+    if (!drawing) return;
+    if (!corner) {
+      corner = event.latlng;
+      preview = L.rectangle([corner, corner], PREVIEW_STYLE).addTo(map);
+      return;
+    }
+    const a = corner;
+    const b = event.latlng;
+    stopDrawing();
+    if (Math.abs(a.lat - b.lat) < 0.01 || Math.abs(a.lng - b.lng) < 0.01) {
+      setMsg('El área es demasiado pequeña. Dibuja un rectángulo más grande.', true);
+      return;
+    }
+    setAoi({
+      south: Math.min(a.lat, b.lat), north: Math.max(a.lat, b.lat),
+      west: Math.min(a.lng, b.lng), east: Math.max(a.lng, b.lng),
+    }, false);
+    apply();
+  });
+
+  map.on('mousemove', (event) => {
+    if (drawing && corner && preview) preview.setBounds([corner, event.latlng]);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && drawing) stopDrawing();
+  });
+
+  // -------------------------------------------------------------------------
+  // Consulta y dibujo de celdas
+  // -------------------------------------------------------------------------
+
+  function readControls() {
+    state.from = $('from').value;
+    state.to = $('to').value;
+    state.conf = $('conf').value;
+    state.color = $('color-mode').value;
+  }
+
+  function validate() {
+    const aoi = readAoiInputs();
+    if (!Object.values(aoi).every(Number.isFinite)) return 'Completa los cuatro límites del área.';
+    if (aoi.south >= aoi.north || aoi.west >= aoi.east) {
+      return 'Área no válida: el sur debe ser menor que el norte y el oeste menor que el este.';
+    }
+    if (!DATE_RE.test($('from').value) || !DATE_RE.test($('to').value)) return 'Elige las dos fechas.';
+    if ($('from').value > $('to').value) return 'La fecha inicial debe ser anterior a la final.';
+    return '';
+  }
+
+  function query() {
+    const a = state.aoi;
+    return new URLSearchParams({
+      south: a.south, north: a.north, west: a.west, east: a.east,
+      start: state.from, end: state.to, conf: state.conf,
+    });
+  }
+
+  async function apply() {
+    const problem = validate();
+    if (problem) {
+      setMsg(problem, true);
+      return;
+    }
+    state.aoi = readAoiInputs();
+    setAoi(state.aoi, false);
+    readControls();
+
+    if (controller) controller.abort();
+    controller = new AbortController();
+    setMsg('');
+    setLoading(true);
+    try {
+      const data = await getJson(`/api/mapa/cells?${query()}`, { signal: controller.signal });
+      lastData = data;
+      render(data);
+      persist();
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      setMsg(error.message || 'No se pudieron consultar los datos.', true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function rangeLabel(from, to) {
+    if (from === to) return `${from} ${from === 1 ? 'día' : 'días'}`;
+    return `${from}–${to} días`;
+  }
+
+  function intensityScale(rows, idx) {
+    const days = rows.map((r) => r[idx.days]).sort((a, b) => a - b);
+    const quantiles = [0.2, 0.4, 0.6, 0.8].map((q) => days[Math.floor(q * (days.length - 1))]);
+    const breaks = [...new Set(quantiles)];
+    const n = breaks.length + 1;
+    const colors = n === 1
+      ? [RAMP[2]]
+      : Array.from({ length: n }, (_, i) => RAMP[Math.round((i * (RAMP.length - 1)) / (n - 1))]);
+    const classOf = (v) => {
+      let i = 0;
+      while (i < breaks.length && v > breaks[i]) i += 1;
+      return i;
+    };
+    const labels = colors.map((_, i) => {
+      if (n === 1) return `${days[0]} ${days[0] === 1 ? 'día' : 'días'} con focos`;
+      if (i === 0) return rangeLabel(1, breaks[0]);
+      if (i === n - 1) return `más de ${breaks[n - 2]} días`;
+      return rangeLabel(breaks[i - 1] + 1, breaks[i]);
+    });
+    return { colors, classOf, labels };
+  }
+
+  function renderLegend(items) {
+    $('legend').innerHTML = items
+      .map((it) => `<li><span class="swatch" style="background:${it.color}"></span>${it.label}</li>`)
+      .join('');
+  }
+
+  function render(data) {
+    const idx = Object.fromEntries(data.columns.map((name, i) => [name, i]));
+    const rows = data.cells;
+    const s = data.summary;
+
+    if (cellsLayer) map.removeLayer(cellsLayer);
+    cellsLayer = null;
+
+    $('k-cells').textContent = fmt.format(s.cells);
+    $('k-days').textContent = fmt.format(s.cell_days);
+    $('k-det').textContent = fmt.format(s.detections);
+    $('k-crit').textContent = fmt.format(s.critical_days);
+    $('k-unus').textContent = fmt.format(s.unusual_days);
+
+    const trunc = $('trunc');
+    trunc.hidden = !data.truncated;
+    if (data.truncated) {
+      trunc.textContent = `Se dibujan las ${fmt.format(data.shown)} celdas más activas de ${fmt.format(s.cells)}. Reduce el área o las fechas para verlas todas. El CSV incluye todo.`;
+    }
+
+    if (!rows.length) {
+      renderLegend([]);
+      setMsg('No hay focos en esta área y rango de fechas.');
+      return;
+    }
+
+    let colorOf;
+    if (state.color === 'intensity') {
+      const scale = intensityScale(rows, idx);
+      colorOf = (r) => scale.colors[scale.classOf(r[idx.days])];
+      renderLegend(scale.colors.map((color, i) => ({ color, label: scale.labels[i] })));
+    } else {
+      colorOf = (r) => {
+        if (r[idx.critical_days] > 0) return STATE_COLORS.critical;
+        if (r[idx.unusual_days] > 0) return STATE_COLORS.unusual;
+        return STATE_COLORS.normal;
+      };
+      renderLegend([
+        { color: STATE_COLORS.critical, label: 'Con días críticos' },
+        { color: STATE_COLORS.unusual, label: 'Con días inusuales (sin críticos)' },
+        { color: STATE_COLORS.normal, label: 'Solo días normales' },
+      ]);
+    }
+
+    const markers = rows.map((r) => {
+      const marker = L.circleMarker([r[idx.lat], r[idx.lon]], {
+        radius: Math.max(3, Math.min(8, 2 + Math.sqrt(r[idx.days]))),
+        fillColor: colorOf(r), fillOpacity: 0.8,
+        color: '#F7F7EC', weight: 0.5, opacity: 0.7,
+      });
+      marker.on('click', () => {
+        if (!drawing) openPopup(r, idx);
+      });
+      return marker;
+    });
+    cellsLayer = L.layerGroup(markers).addTo(map);
+  }
+
+  function openPopup(r, idx) {
+    const frp = r[idx.frp_max];
+    L.popup()
+      .setLatLng([r[idx.lat], r[idx.lon]])
+      .setContent(
+        `<strong>Celda ${r[idx.lat].toFixed(3)}, ${r[idx.lon].toFixed(3)}</strong>` +
+        `Días con focos: ${fmt.format(r[idx.days])}<br>` +
+        `Detecciones: ${fmt.format(r[idx.detections])}<br>` +
+        `FRP máximo: ${frp === null ? '—' : `${frp.toFixed(1)} MW`}<br>` +
+        `Días críticos: ${fmt.format(r[idx.critical_days])}<br>` +
+        `Días inusuales: ${fmt.format(r[idx.unusual_days])}<br>` +
+        `Último foco: ${r[idx.last_date]}`
+      )
+      .openOn(map);
+  }
+
+  // -------------------------------------------------------------------------
+  // Descarga CSV
+  // -------------------------------------------------------------------------
+
+  async function downloadCsv() {
+    const problem = validate();
+    if (problem) {
+      setMsg(problem, true);
+      return;
+    }
+    state.aoi = readAoiInputs();
+    readControls();
+    const button = $('btn-csv');
+    button.disabled = true;
+    setMsg('Preparando el CSV…');
+    try {
+      const res = await fetch(`/api/mapa/csv?${query()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Error ${res.status} al generar el CSV.`);
+      }
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `moviris_celdas_${state.from}_${state.to}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+      setMsg('');
+    } catch (error) {
+      setMsg(error.message || 'No se pudo generar el CSV.', true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Eventos
+  // -------------------------------------------------------------------------
+
+  $('btn-draw').addEventListener('click', () => (drawing ? stopDrawing() : startDrawing()));
+  $('btn-apply').addEventListener('click', apply);
+  $('btn-csv').addEventListener('click', downloadCsv);
+
+  $('btn-clear').addEventListener('click', () => {
+    stopDrawing();
+    setAoi(DEFAULT_AOI, true);
+    apply();
+  });
+
+  $('preset').addEventListener('change', (event) => {
+    const preset = PRESETS[event.target.value];
+    event.target.value = '';
+    if (!preset) return;
+    stopDrawing();
+    setAoi(preset, true);
+    apply();
+  });
+
+  for (const key of ['north', 'south', 'west', 'east']) {
+    $(key).addEventListener('change', () => {
+      const aoi = readAoiInputs();
+      if (Object.values(aoi).every(Number.isFinite) && aoi.south < aoi.north && aoi.west < aoi.east) {
+        setAoi(aoi, true);
+        setMsg('');
+      } else {
+        setMsg('Área no válida: el sur debe ser menor que el norte y el oeste menor que el este.', true);
+      }
+    });
+  }
+
+  document.querySelectorAll('[data-range]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      if (!meta) return;
+      const range = chip.dataset.range;
+      const from = range === 'all' ? meta.min_date : addDays(meta.max_date, -Number(range));
+      $('from').value = from < meta.min_date ? meta.min_date : from;
+      $('to').value = meta.max_date;
+      apply();
+    });
+  });
+
+  $('color-mode').addEventListener('change', () => {
+    state.color = $('color-mode').value;
+    if (lastData) render(lastData);
+  });
+
+  // -------------------------------------------------------------------------
+  // Arranque
+  // -------------------------------------------------------------------------
+
+  async function init() {
+    readInitial();
+    setAoi(state.aoi, true);
+    $('conf').value = state.conf;
+    $('color-mode').value = state.color;
+
+    try {
+      meta = await getJson('/api/mapa/meta');
+    } catch (error) {
+      setMsg(error.message, true);
+      return;
+    }
+
+    for (const id of ['from', 'to']) {
+      $(id).min = meta.min_date;
+      $(id).max = meta.max_date;
+    }
+    if (!state.from) {
+      state.to = meta.max_date;
+      const from = addDays(meta.max_date, -90);
+      state.from = from < meta.min_date ? meta.min_date : from;
+    }
+    $('from').value = state.from;
+    $('to').value = state.to;
+    apply();
+  }
+
+  init();
+})();
