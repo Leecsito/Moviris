@@ -7,7 +7,7 @@
 **Base de datos:** Turso (libSQL) para publicación remota y SQLite local para staging  
 **Fuente de datos:** NASA FIRMS (MODIS y VIIRS, archivo y NRT)  
 **Entorno de ejecución:** Python 3.10+ (Windows / Linux)  
-**Estado actual:** Modo local activo (`TURSO_ENABLED=false`); bienvenida en `/`, componente Inicio en `/inicio/`, mapa en `/mapa/`, calendario en `/calendario/`, placeholder de Dashboard en `/dashboard/` y ETL en `/etl/`
+**Estado actual:** Modo local activo (`TURSO_ENABLED=false`); bienvenida en `/`, componente Inicio en `/inicio/`, mapa en `/mapa/`, calendario en `/calendario/`, Dashboard con API en `/dashboard/` y ETL en `/etl/`
 
 > [!IMPORTANT]
 > **Modo local activo.** El proyecto arranca con `TURSO_ENABLED=false`. En este modo la pestaña ETL, los endpoints de lectura y el CLI trabajan únicamente contra `data/moviris_staging.db`; no se consulta ni se escribe en Turso. Para reconectar, cambia `TURSO_ENABLED=true` en `.env`. No hay botón de conexión en la interfaz.
@@ -91,8 +91,10 @@ MOVIRIS/
 │   └── calendario.py          # Blueprint Flask del calendario y su API
 │
 ├── dashboard/
-│   ├── index.html             # Placeholder del Dashboard
-│   └── style.css              # Estilos del placeholder
+│   ├── index.html             # Dashboard de patrones históricos
+│   ├── style.css              # Estilos del Dashboard
+│   ├── script.js              # Gráficos, filtros y descargas CSV
+│   └── dashboard.py           # Blueprint Flask y API del Dashboard
 │
 ├── data/                      # IGNORADO
 │   └── moviris_staging.db     # Datos limpios locales (~96 MB con el dataset actual)
@@ -115,7 +117,7 @@ MOVIRIS/
 | `inicio/` | Componente Inicio (landing) | Sí |
 | `mapa/` | Componente Mapa + blueprint Flask | Sí |
 | `calendario/` | Componente Calendario + blueprint Flask | Sí |
-| `dashboard/` | Placeholder del Dashboard (sin API todavía) | Sí |
+| `dashboard/` | Dashboard de patrones históricos + blueprint Flask | Sí |
 | `ico.svg` | Logo servido en `/ico.svg`; `fill="#637545"` | Sí |
 | `requirements.txt` | Dependencias Python | Sí |
 | `.env` | Token de Turso y `TURSO_ENABLED` | **No** (ignorado) |
@@ -303,7 +305,7 @@ El header es un componente separado; **no se copia su HTML dentro de las página
 - **Páginas que lo usan:** `/etl/`, `/inicio/`, `/mapa/`, `/calendario/` y `/dashboard/`. La bienvenida `/` **no** lo monta.
 - **Integración:** cada página solo incluye `<div id="site-header"></div>`, `/header/style.css` y `/header/script.js`; el resto lo resuelve el componente.
 - **Sin duplicación:** las páginas no contienen las clases `hd-*` ni el HTML del header.
-- **Enlaces:** todas las pestañas del header ya tienen página. `/dashboard/` es un placeholder temporal.
+- **Enlaces:** todas las pestañas del header tienen página. El Dashboard consume `/api/dashboard/summary`.
 - **Sin API/Turso:** el header solo descarga su propio fragmento estático.
 - **Rutas:** `/header/index.html`, `/header/style.css` y `/header/script.js`.
 
@@ -391,24 +393,36 @@ app.register_blueprint(calendario_bp)
 
 ### [Dashboard] `dashboard/`
 
-El Dashboard es todavía un **placeholder temporal** para que la pestaña del header no responda `404`.
+El Dashboard muestra la actividad histórica del área de interés: indicadores,
+actividad por año, anomalías, estacionalidad, cobertura MODIS/VIIRS y descargas
+CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi']`).
 
 | Archivo | Rol |
 |---|---|
-| `index.html` | Página mínima con el header compartido y el aviso “Módulo en preparación” |
-| `style.css` | Estilos del placeholder, con la paleta del proyecto |
+| `index.html` | Página con el header compartido, controles, KPIs y cinco gráficos |
+| `style.css` | Estilos del Dashboard con la paleta del proyecto |
+| `script.js` | Chart.js, filtros, cálculo de anomalías/medianas y descargas |
+| `dashboard.py` | Blueprint Flask: página, assets y `/api/dashboard/summary` |
 
 #### Rutas
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/dashboard`, `/dashboard/`, `/dashboard/index.html` | Placeholder del Dashboard |
-| `GET` | `/dashboard/style.css` | Estilos del placeholder |
+| `GET` | `/dashboard`, `/dashboard/`, `/dashboard/index.html` | Página del Dashboard |
+| `GET` | `/dashboard/style.css` | Estilos del Dashboard |
+| `GET` | `/dashboard/script.js` | Lógica y gráficos del Dashboard |
+| `GET` | `/api/dashboard/summary` | Totales, matriz año × mes, celdas por año y cobertura de sensores |
 
+#### API del Dashboard
+
+- **Parámetros:** `south`, `north`, `west`, `east` y `conf` (`0`, `1` o `2`).
+- **Respuesta:** `min_date`, `max_date`, `totals`, `months`, `year_cells` y `coverage`.
+- Reutiliza `_area_params()` del calendario y `_connect()` del mapa.
+- Con `TURSO_ENABLED=true` responde `501`, igual que el mapa y el calendario.
+- Sin staging local responde `503`.
+- El CSV de celdas-día se descarga desde `/api/mapa/csv`, no desde un endpoint propio.
+- Chart.js se carga desde CDN; si no hay Internet, la página avisa y no dibuja los gráficos.
 - Monta `#site-header` y carga `/header/*`; el header marca **Dashboard**.
-- **Sin API ni datos:** no consulta el staging ni Turso.
-- No se sirve `dashboard/index.html` como archivo genérico: las rutas son explícitas.
-- Cuando se implemente el Dashboard real, se reemplazan estos archivos y se añaden sus endpoints y pruebas.
 
 ### [Backend] `backend/app.py`
 
@@ -465,8 +479,9 @@ El Dashboard es todavía un **placeholder temporal** para que la pestaña del he
 | `GET` | `/calendario/style.css`, `/calendario/script.js` | Assets del calendario; `calendario.py` no se expone |
 | `GET` | `/api/calendario/matrix` | Matriz anual/mensual y períodos críticos (blueprint `calendario`) |
 | `GET` | `/api/calendario/month` | Detalle diario de un mes (blueprint `calendario`) |
-| `GET` | `/dashboard`, `/dashboard/`, `/dashboard/index.html` | Placeholder del Dashboard |
-| `GET` | `/dashboard/style.css` | Estilos del placeholder del Dashboard |
+| `GET` | `/dashboard`, `/dashboard/`, `/dashboard/index.html` | Página del Dashboard (blueprint `dashboard`) |
+| `GET` | `/dashboard/style.css`, `/dashboard/script.js` | Assets del Dashboard; `dashboard.py` no se expone |
+| `GET` | `/api/dashboard/summary` | Totales, matriz año × mes y cobertura de sensores (blueprint `dashboard`) |
 | `GET` | `/ico.svg` | Logo de la raíz (sin copia en `etl/`) |
 | `GET` | `/api/health` | Modo, estado de Turso/staging y tablas |
 | `GET` | `/api/files` | CSV del proyecto (si existe `hackathon/`) y lotes subidos |
@@ -1099,8 +1114,8 @@ http://127.0.0.1:5000/
 
 El ETL está en `http://127.0.0.1:5000/etl/`, el componente Inicio en
 `http://127.0.0.1:5000/inicio/`, el mapa en `http://127.0.0.1:5000/mapa/`, el
-calendario en `http://127.0.0.1:5000/calendario/` y el placeholder del Dashboard
-en `http://127.0.0.1:5000/dashboard/`.
+calendario en `http://127.0.0.1:5000/calendario/` y el Dashboard en
+`http://127.0.0.1:5000/dashboard/`.
 
 Si el puerto está ocupado:
 
@@ -1289,19 +1304,19 @@ Se arrancó el backend con credenciales de Turso inválidas y `TURSO_ENABLED=fal
 | Responsive 960 px | Matriz y panel lateral en una columna |
 | Responsive 390 px | Matriz con scroll interno; `scrollWidth = innerWidth`, sin overflow de página |
 
-### F. Prueba del placeholder Dashboard
+### F. Prueba del Dashboard
 
 | Prueba | Resultado |
 |---|---|
 | `/dashboard`, `/dashboard/`, `/dashboard/index.html` | `200` |
-| `/dashboard/style.css` | `200` |
-| `/dashboard/app.py` | `404` |
+| `/dashboard/style.css`, `/dashboard/script.js` | `200` |
+| `/dashboard/dashboard.py` | `404` |
 | Header en `/dashboard/` | Pestaña **Dashboard** activa |
-| Contenido | Título “Dashboard · MOVIRIS”, encabezado “Módulo en preparación” y enlaces a mapa/calendario |
-| Consola | Sin errores |
-| Responsive 1440 px | Sin overflow horizontal |
-| Responsive 390 px | Sin overflow; `scrollWidth = innerWidth` |
-| API/Turso | El placeholder no consulta ninguna API |
+| Contenido | Título “Dashboard · MOVIRIS”, KPIs y cinco gráficos |
+| API local | `/api/dashboard/summary` → `200` con `min_date`, `max_date`, `totals`, `months`, `year_cells` y `coverage` |
+| Modo Turso | `/api/dashboard/summary` → `501` hasta conectar el mapa con Turso |
+| Consola | Sin errores propios; Chart.js requiere Internet |
+| Responsive | Sin overflow horizontal en 1440 px y 390 px |
 
 ### G. Consumo de Turso
 
@@ -1329,7 +1344,7 @@ No se consultó ni modificó Turso durante la implementación del modo local ni 
 16. **Servidor de desarrollo:** `run.py` usa Flask sin WSGI de producción.
 17. **Enlaces de Inicio:** los CTA a `/mapa/` y `/calendario/` ya funcionan; todas las pestañas del header tienen página.
 18. **Animación de bienvenida:** la red de puntos usa `requestAnimationFrame` y la órbita es CSS; en equipos de bajas prestaciones puede consumir CPU. Se puede reducir el número de nodos o desactivar con `prefers-reduced-motion`.
-19. **Dashboard es un placeholder:** `/dashboard/` existe solo para evitar el `404`; no tiene estadísticas, API ni datos. Al implementarlo, reemplazar `dashboard/index.html` y `dashboard/style.css`, añadir sus rutas/endpoints y actualizar esta documentación.
+19. **Dashboard implementado, lectura local:** `/dashboard/` ya tiene KPIs, gráficos y `/api/dashboard/summary`, pero reutiliza `_connect()` del mapa. Con `TURSO_ENABLED=true` responde `501`; para persistencia en Render falta conectar la lectura a Turso o usar un disco persistente.
 20. **El mapa y el calendario solo leen el staging local:** con `TURSO_ENABLED=true`, `/api/mapa/*` y `/api/calendario/*` responden `501`. Al conectar `_connect()` con `backend/db.py`, el calendario hereda la conexión sin cambios.
 21. **Dependencia de CDN y teselas:** Leaflet y OpenStreetMap se cargan desde Internet. OpenStreetMap no requiere key, pero su infraestructura es financiada por donaciones y pide tráfico moderado; para producción con alto tráfico conviene una key gratuita de CARTO, otro proveedor o teselas propias. Las celdas y la API siguen funcionando sin cambiar el blueprint.
 22. **Límites del mapa:** `/api/mapa/cells` envía hasta 20.000 celdas por defecto (máximo 30.000) y el CSV puede ser grande; para áreas continentales conviene filtrar fechas o confianza.

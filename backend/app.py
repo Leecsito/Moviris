@@ -42,10 +42,10 @@ from backend.settings import turso_enabled
 from etl.etl import DEFAULT_STAGING, ROOT
 from mapa.mapa import bp as mapa_bp
 from calendario.calendario import bp as calendario_bp
+from dashboard.dashboard import bp as dashboard_bp
 
 ETL_DIR = ROOT / "etl"
 INICIO_DIR = ROOT / "inicio"
-DASHBOARD_DIR = ROOT / "dashboard"
 HEADER_DIR = ROOT / "header"
 HACKATHON_DIR = ROOT / "hackathon"
 UPLOADS_DIR = ROOT / "uploads"
@@ -305,6 +305,7 @@ app.json.ensure_ascii = False
 
 app.register_blueprint(mapa_bp)
 app.register_blueprint(calendario_bp)
+app.register_blueprint(dashboard_bp)
 
 job_manager = JobManager()
 
@@ -327,10 +328,6 @@ def _send_root(filename: str):
 
 def _send_inicio(filename: str):
     return _no_store(send_from_directory(INICIO_DIR, filename))
-
-
-def _send_dashboard(filename: str):
-    return _no_store(send_from_directory(DASHBOARD_DIR, filename))
 
 
 def _send_header(filename: str):
@@ -400,18 +397,6 @@ def inicio_styles():
 @app.get("/inicio/script.js")
 def inicio_script():
     return _send_inicio("script.js")
-
-
-@app.get("/dashboard")
-@app.get("/dashboard/")
-@app.get("/dashboard/index.html")
-def dashboard_index():
-    return _send_dashboard("index.html")
-
-
-@app.get("/dashboard/style.css")
-def dashboard_styles():
-    return _send_dashboard("style.css")
 
 
 @app.get("/ico.svg")

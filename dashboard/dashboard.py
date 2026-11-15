@@ -31,6 +31,11 @@ STATIC_FILES = {"style.css", "script.js"}
 bp = Blueprint("dashboard", __name__)
 
 
+def _no_store(response):
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @bp.errorhandler(ApiError)
 def _handle_api_error(err):
     return jsonify({"error": str(err)}), err.status
@@ -41,14 +46,14 @@ def _handle_api_error(err):
 @bp.get("/dashboard/")
 @bp.get("/dashboard/index.html")
 def page():
-    return send_from_directory(COMPONENT_DIR, "index.html")
+    return _no_store(send_from_directory(COMPONENT_DIR, "index.html"))
 
 
 @bp.get("/dashboard/<path:filename>")
 def static_file(filename):
     if filename not in STATIC_FILES:  # dashboard.py nunca se expone
         abort(404)
-    return send_from_directory(COMPONENT_DIR, filename)
+    return _no_store(send_from_directory(COMPONENT_DIR, filename))
 
 
 # ---------------------------------------------------------------- utilidades

@@ -1,19 +1,23 @@
 # MOVIRIS · Monitoreo de focos de calor
 
-Bienvenida, Inicio, Mapa, Calendario y componente ETL para los datos de **NASA
-FIRMS** (MODIS y VIIRS, archivo y NRT). El proyecto puede trabajar en **modo
-local** con SQLite o publicar en **Turso**.
+Bienvenida, Inicio, Mapa, Calendario, Dashboard y componente ETL para los datos
+de **NASA FIRMS** (MODIS y VIIRS, archivo y NRT). El proyecto puede trabajar en
+**modo local** con SQLite o publicar en **Turso**.
 
 - `/` → bienvenida animada (`index.html`, `styles.css`, `script.js` en la raíz).
 - `/inicio/` → componente Inicio: contexto del proyecto, problema, solución y públicos.
 - `/mapa/` → mapa de celdas por área y fechas, con fondo OpenStreetMap. En móvil, el mapa va arriba y el panel debajo.
 - `/calendario/` → calendario de actividad por año, mes y día; usa el área del mapa.
-- `/dashboard/` → placeholder del Dashboard: solo evita el `404` mientras se implementa.
+- `/dashboard/` → Dashboard de patrones históricos: actividad anual, anomalías, estacionalidad, cobertura de sensores y descargas CSV.
 - `/etl/` → subida de CSV, ejecución del ETL y resumen.
 
 La pestaña `/etl/` es deliberadamente simple: **subir archivos → ejecutar → ver el
 resultado**. Los mapas, estadísticas y consultas pertenecen a la aplicación
 principal, no a esta pestaña.
+
+El **Dashboard** (`/dashboard/`) usa el área guardada por el mapa y la API
+`/api/dashboard/summary`. En modo local lee `data/moviris_staging.db`; con
+`TURSO_ENABLED=true` todavía devuelve `501`, igual que el mapa y el calendario.
 
 ## 1. Arranque rápido
 
@@ -27,7 +31,7 @@ python run.py
 Abre la bienvenida en **http://127.0.0.1:5000/**. El ETL está en
 **http://127.0.0.1:5000/etl/**. El mapa y el calendario están en
 **http://127.0.0.1:5000/mapa/** y **http://127.0.0.1:5000/calendario/**.
-El placeholder del Dashboard está en **http://127.0.0.1:5000/dashboard/**.
+El Dashboard está en **http://127.0.0.1:5000/dashboard/**.
 
 Si el puerto está ocupado:
 
@@ -54,7 +58,7 @@ El header vive en `header/` y se integra **sin copiar su HTML** dentro de cada p
 - Cada página que lo usa incluye `<div id="site-header"></div>`, `/header/style.css` y `/header/script.js`.
 - El script descarga `/header/index.html` y marca la pestaña activa.
 - Lo usan `/etl/`, `/inicio/`, `/mapa/`, `/calendario/` y `/dashboard/`; la bienvenida `/` no.
-- Todas las pestañas del header tienen página. `/dashboard/` es un placeholder temporal sin API.
+- Todas las pestañas del header tienen página. El Dashboard consume `/api/dashboard/summary`.
 
 ## 2. Modo local por defecto
 
@@ -168,8 +172,10 @@ de reemplazo del proceso.
 │   ├── script.js              # matriz, detalle diario y CSV
 │   └── calendario.py          # blueprint Flask del calendario
 ├── dashboard/
-│   ├── index.html             # placeholder del Dashboard
-│   └── style.css              # estilos del placeholder
+│   ├── index.html             # dashboard de patrones históricos
+│   ├── style.css              # estilos del dashboard
+│   ├── script.js              # gráficos, filtros y descargas CSV
+│   └── dashboard.py           # blueprint Flask y API del dashboard
 ├── data/moviris_staging.db    # staging local (datos limpios)
 └── uploads/                   # archivos temporales subidos desde la pestaña
 ```
@@ -277,7 +283,7 @@ En modo local no hay espera de sincronización.
 | El calendario no muestra datos | Verifica que exista staging y que `TURSO_ENABLED=false`; ejecuta el ETL si está vacío. |
 | La matriz del calendario se corta en móvil | Es el scroll interno de `.matrix-wrap`; desliza la tabla horizontalmente. |
 | `/api/calendario/*` responde `501` | El calendario hereda `_connect()` del mapa y todavía no lee de Turso; usa `TURSO_ENABLED=false`. |
-| Dashboard muestra “Módulo en preparación” | Es el placeholder temporal; el Dashboard real aún no está implementado. |
+| El Dashboard no muestra datos | Verifica que exista staging local (`TURSO_ENABLED=false`) y ejecuta el ETL; con Turso activo el Dashboard aún devuelve `501`. |
 | El puerto 5000 está ocupado | Detén la instancia anterior o `python run.py --port 8080`. |
 
 ## 10. Seguridad
