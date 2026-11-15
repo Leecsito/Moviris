@@ -471,7 +471,7 @@ Botón **Explain / Explicar** en los cinco gráficos del Dashboard y en los tres
 - **Una llamada por clic:** no hay chat ni historial. Cada clic envía `POST /api/explain` y muestra la respuesta; cerrar la ventana aborta la petición en curso.
 - **Contenido enviado:** `chart` (lista blanca), `title`, `filters` (área, confianza, métrica, período y selección), `lang` y un resumen compacto (`top_years`, `top_months`, medianas, índices o semanas; nunca la matriz completa).
 - **Respuesta:** texto plano de unas 100 palabras en el idioma activo; explica qué muestra el gráfico, qué dicen los datos y qué significan. El prompt prohíbe inventar cifras y usar Markdown.
-- **Backend:** usa `urllib.request` de la stdlib (sin dependencia nueva), `temperature: 0.2`, `max_tokens: 240`, timeout de 25 s y un máximo de 20 peticiones/minuto por IP.
+- **Backend:** usa `urllib.request` de la stdlib (sin dependencia nueva), `temperature: 0.2`, `max_tokens: 400`, timeout de 25 s y un máximo de 20 peticiones/minuto por IP.
 - **Configuración:** `GROQ_LLM_TOKEN` y `GROQ_MODEL` viven solo en `.env`/entorno del servidor. Sin ambos, el endpoint responde `503` con un mensaje localizado; la clave nunca se envía al navegador.
 - **Errores:** `400` solicitud inválida, `413` resumen demasiado grande, `429` demasiadas peticiones, `502` fallo de Groq y `503` sin configurar. Los mensajes se devuelven en `en` o `es` según `lang`.
 - **Privacidad:** no se registra el token ni el cuerpo de la petición en los logs.
@@ -912,8 +912,8 @@ El calendario comparte los parámetros de área y confianza del mapa, pero usa t
 ```
 
 - Usa `GROQ_LLM_TOKEN` y `GROQ_MODEL`; si falta cualquiera, responde `503` con `code: "not_configured"`.
-- El modelo no tiene valor por defecto en el código: debe configurarse con un modelo de la lista oficial de Groq.
-- Una sola llamada a `https://api.groq.com/openai/v1/chat/completions`, sin historial, con `max_tokens: 240` y timeout de 25 s.
+- El modelo no se fija en el código: `.env.example` sugiere `openai/gpt-oss-20b`, el modelo de producción más rápido y barato de la lista oficial de Groq.
+- Una sola llamada a `https://api.groq.com/openai/v1/chat/completions`, sin historial, con `max_tokens: 400` y timeout de 25 s.
 - Límite de 20 peticiones por minuto e IP (`429` con `code: "rate_limited"`).
 - Errores localizados: `400` inválido, `413` resumen demasiado grande, `502` fallo de Groq, `503` sin configurar.
 - No registra el token ni el cuerpo enviado; solo el tipo de error.
@@ -1193,12 +1193,12 @@ TURSO_DATABASE_URL=libsql://tu-base.turso.io
 TURSO_AUTH_TOKEN=tu-token-de-turso
 TURSO_ENABLED=false
 GROQ_LLM_TOKEN=tu-token-de-groq
-GROQ_MODEL=
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 - `TURSO_ENABLED=false` → modo local (recomendado para desarrollo).
 - `TURSO_ENABLED=true` → lecturas y publicaciones en Turso.
-- `GROQ_MODEL` debe ser un modelo de la lista oficial de Groq; no hay valor por defecto en el código. Sin token o sin modelo, Explain responde `503`.
+- `GROQ_MODEL` debe ser un modelo de la lista oficial de Groq; `.env.example` usa `openai/gpt-oss-20b`. Sin token o sin modelo, Explain responde `503`.
 - `.env` está ignorado por git.
 
 ### D. Arranque
@@ -1313,7 +1313,7 @@ curl -X POST http://127.0.0.1:5000/api/etl/run \
 | `TURSO_AUTH_TOKEN` | `.env` | — | Token de escritura/lectura |
 | `TURSO_ENABLED` | `.env` | `false` en el proyecto | Interruptor local/Turso |
 | `GROQ_LLM_TOKEN` | `.env` | — | Token de Groq; solo backend |
-| `GROQ_MODEL` | `.env` | — (sin valor por defecto) | Modelo de Groq para Explain |
+| `GROQ_MODEL` | `.env` | `openai/gpt-oss-20b` en `.env.example` | Modelo de Groq para Explain |
 | `MAX_BODY_CHARS` | `backend/explain.py` | `14_000` | Tamaño máximo del resumen de Explain |
 | `MAX_REQUESTS_PER_MINUTE` | `backend/explain.py` | `20` | Límite de Explain por IP |
 | `DEFAULT_STAGING` | `etl/etl.py` | `data/moviris_staging.db` | SQLite local |

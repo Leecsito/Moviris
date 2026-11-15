@@ -16,6 +16,7 @@ from flask import Blueprint, jsonify, request
 from etl.etl import load_env
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+USER_AGENT = "MOVIRIS/1.0 (+https://moviris.onrender.com)"
 MAX_BODY_CHARS = 14_000
 MAX_REQUESTS_PER_MINUTE = 20
 ALLOWED_CHARTS = {
@@ -72,6 +73,7 @@ def _system_prompt(lang: str) -> str:
             "Responde en español, en lenguaje sencillo y en un máximo aproximado de 100 palabras. "
             "Explica en este orden: qué muestra el gráfico, qué dicen los datos y qué significa. "
             "Usa únicamente los datos del mensaje del usuario. No inventes cifras ni contexto. "
+            "No afirmes tendencias, causas ni comparaciones que no estén explícitas en los datos. "
             "Si los datos no alcanzan, dilo. No uses Markdown ni listas largas."
         )
     return (
@@ -79,6 +81,7 @@ def _system_prompt(lang: str) -> str:
         "Answer in English, in plain language and in about 100 words maximum. "
         "Explain in this order: what the chart shows, what the data says, and what it means. "
         "Use only the data in the user message. Never invent numbers or context. "
+        "Do not claim trends, causes, or comparisons that are not explicit in the data. "
         "If the data is insufficient, say so. Do not use Markdown or long lists."
     )
 
@@ -102,7 +105,7 @@ def _llamar_groq(token: str, model: str, lang: str, payload: dict) -> str:
             },
         ],
         "temperature": 0.2,
-        "max_tokens": 240,
+        "max_tokens": 400,
     }
     solicitud = urllib.request.Request(
         GROQ_URL,
@@ -111,6 +114,7 @@ def _llamar_groq(token: str, model: str, lang: str, payload: dict) -> str:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": USER_AGENT,
         },
         method="POST",
     )

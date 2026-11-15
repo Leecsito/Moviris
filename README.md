@@ -350,7 +350,7 @@ Variables de entorno:
 | `TURSO_DATABASE_URL` | URL de Turso (`libsql://...`) |
 | `TURSO_AUTH_TOKEN` | token de Turso |
 | `GROQ_LLM_TOKEN` | token de Groq (solo backend) |
-| `GROQ_MODEL` | modelo de Groq para Explain (sin valor por defecto) |
+| `GROQ_MODEL` | modelo de Groq para Explain (`openai/gpt-oss-20b` recomendado) |
 
 Notas importantes:
 
@@ -396,8 +396,8 @@ Gunicorn es para Linux/Render; en Windows usa `run.py`.
   qué significan.
 - La ventana se cierra con **X** o **Esc**; muestra “Loading…” / “Cargando…” y un
   error corto si falla.
-- Variables: `GROQ_LLM_TOKEN` y `GROQ_MODEL`. El endpoint no usa un modelo por
-  defecto: hay que configurar `GROQ_MODEL` con un modelo de la lista oficial de Groq.
+- Variables: `GROQ_LLM_TOKEN` y `GROQ_MODEL`. El endpoint no fija un modelo en el
+  código; `.env.example` sugiere `openai/gpt-oss-20b` (rápido y de bajo costo).
 - Límite básico de peticiones y tamaño máximo del resumen. La clave nunca se envía
   al navegador.
 
