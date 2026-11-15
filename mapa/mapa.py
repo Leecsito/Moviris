@@ -183,35 +183,47 @@ def cells():
 
     con = _connect()
     try:
-        rows = con.execute(
-            "SELECT cell_lat, cell_lon, COUNT(*), SUM(detections), MAX(frp_max), "
-            "SUM(status = 'critical'), SUM(status = 'unusual'), MAX(acq_date), MAX(confidence_max) "
-            f"FROM fire_cells_daily WHERE {WHERE} GROUP BY cell_lat, cell_lon",
+        summary_row = con.execute(
+            "SELECT COUNT(*), COALESCE(SUM(days), 0), COALESCE(SUM(detections), 0), "
+            "COALESCE(SUM(critical_days), 0), COALESCE(SUM(unusual_days), 0) "
+            "FROM ("
+            "SELECT cell_lat, cell_lon, COUNT(*) AS days, SUM(detections) AS detections, "
+            "SUM(status = 'critical') AS critical_days, SUM(status = 'unusual') AS unusual_days "
+            f"FROM fire_cells_daily WHERE {WHERE} GROUP BY cell_lat, cell_lon"
+            ")",
             _sql_params(params),
+        ).fetchone()
+        rows = con.execute(
+            "SELECT cell_lat, cell_lon, COUNT(*) AS days, SUM(detections) AS detections, "
+            "MAX(frp_max), SUM(status = 'critical'), SUM(status = 'unusual'), "
+            "MAX(acq_date), MAX(confidence_max) "
+            f"FROM fire_cells_daily WHERE {WHERE} GROUP BY cell_lat, cell_lon "
+            "ORDER BY days DESC, detections DESC LIMIT ?",
+            (*_sql_params(params), limit),
         ).fetchall()
     finally:
         con.close()
 
-    cell_days = sum(r[2] for r in rows)
-    critical = sum(r[5] or 0 for r in rows)
-    unusual = sum(r[6] or 0 for r in rows)
+    total_cells = int(summary_row[0] or 0) if summary_row else 0
+    cell_days = int(summary_row[1] or 0) if summary_row else 0
+    detections = int(summary_row[2] or 0) if summary_row else 0
+    critical = int(summary_row[3] or 0) if summary_row else 0
+    unusual = int(summary_row[4] or 0) if summary_row else 0
     summary = {
-        "cells": len(rows),
+        "cells": total_cells,
         "cell_days": cell_days,
-        "detections": sum(r[3] or 0 for r in rows),
+        "detections": detections,
         "critical_days": critical,
         "unusual_days": unusual,
         "normal_days": cell_days - critical - unusual,
     }
 
-    rows.sort(key=lambda r: (r[2], r[3] or 0), reverse=True)
-    shown = rows[:limit]
     payload = {
         "columns": CELL_COLUMNS,
-        "cells": [list(r) for r in shown],
+        "cells": [list(r) for r in rows],
         "summary": summary,
-        "shown": len(shown),
-        "truncated": len(rows) > len(shown),
+        "shown": len(rows),
+        "truncated": total_cells > len(rows),
     }
     _CELLS_CACHE.set(key, payload)
     return respuesta_cache(payload)
@@ -219,6 +231,7 @@ def cells():
 
 CSV_COLUMNS = ["acq_date", "cell_lat", "cell_lon", "detections", "frp_max",
                "frp_sum_norm", "confidence_max", "sensors", "status", "z_score", "is_nrt"]
+MAX_CSV_ROWS = 150_000
 
 
 @bp.get("/api/mapa/csv")
@@ -226,6 +239,24 @@ def csv_export():
     params = _query_params()
     sql_params = _sql_params(params)
     _connect().close()  # valida modo y existencia antes de empezar a transmitir
+
+    # Turso devuelve el resultado completo en memoria; un CSV de millones de
+    # filas tumbaría el proceso. En modo Turso se exige un rango más pequeño.
+    if _turso_on():
+        con = _connect()
+        try:
+            total = con.execute(
+                f"SELECT COUNT(*) FROM fire_cells_daily WHERE {WHERE}",
+                sql_params,
+            ).fetchone()[0]
+        finally:
+            con.close()
+        if total and total > MAX_CSV_ROWS:
+            raise ApiError(
+                f"El CSV tendría {total:,} filas. Reduce el área o las fechas "
+                f"(máximo {MAX_CSV_ROWS:,} filas en modo Turso).",
+                413,
+            )
 
     def generate():
         con = _connect()
