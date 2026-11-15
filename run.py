@@ -18,6 +18,7 @@ El proceso ETL también se puede ejecutar por separado:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import threading
 import webbrowser
@@ -39,11 +40,29 @@ def _configure_console() -> None:
 
 
 def main() -> int:
+    # En Render, PORT viene definido y el servidor debe escuchar en 0.0.0.0.
+    default_host = os.environ.get("HOST") or (
+        "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
+    )
+    try:
+        default_port = int(os.environ.get("PORT") or 5000)
+    except ValueError:
+        default_port = 5000
+
     parser = argparse.ArgumentParser(
         description="MOVIRIS · ETL de focos de calor (NASA FIRMS + Turso)"
     )
-    parser.add_argument("--host", default="127.0.0.1", help="Host del servidor (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=5000, help="Puerto (default: 5000)")
+    parser.add_argument(
+        "--host",
+        default=default_host,
+        help="Host del servidor (default: 127.0.0.1, o 0.0.0.0 si existe PORT)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=default_port,
+        help="Puerto (default: 5000 o la variable PORT)",
+    )
     parser.add_argument("--debug", action="store_true", help="Activar modo debug de Flask")
     parser.add_argument("--reload", action="store_true", help="Recargar al cambiar el código")
     parser.add_argument("--open", action="store_true", help="Abrir el navegador al arrancar")
@@ -77,7 +96,8 @@ def main() -> int:
     else:
         print("Turso: desactivado (modo local)")
 
-    url = f"http://{args.host}:{args.port}"
+    display_host = "127.0.0.1" if args.host in {"0.0.0.0", "::"} else args.host
+    url = f"http://{display_host}:{args.port}"
     print("")
     print("  MOVIRIS · Bienvenida")
     print(f"  Bienvenida: {url}/")

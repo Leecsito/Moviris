@@ -287,3 +287,46 @@ En modo local no hay espera de sincronización.
 - En modo local no se lee ni se escribe en Turso.
 - Los archivos subidos se guardan bajo `uploads/`; el endpoint de borrado valida
   el identificador y la ruta.
+
+## 11. Despliegue en Render
+
+El proyecto puede desplegarse como servicio web de Render usando Gunicorn.
+
+Configuración del servicio:
+
+- **Language:** Python 3
+- **Branch:** `main`
+- **Root Directory:** vacío
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:**
+
+```bash
+gunicorn --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT backend.app:app
+```
+
+Variables de entorno:
+
+| Variable | Valor |
+| --- | --- |
+| `TURSO_ENABLED` | `true` o `false` |
+| `TURSO_DATABASE_URL` | URL de Turso (`libsql://...`) |
+| `TURSO_AUTH_TOKEN` | token de Turso |
+
+Notas importantes:
+
+- Usa **un solo worker** de Gunicorn: el estado de los trabajos ETL vive en memoria del proceso.
+- El disco de Render es **efímero**. La base `data/moviris_staging.db` no se sube al repositorio y no sobrevive a un reinicio o redeploy.
+- Con `TURSO_ENABLED=false`, el ETL puede generar el staging local para una demo, pero el mapa y el calendario lo pierden al reiniciar.
+- Con `TURSO_ENABLED=true`, las lecturas que ya usan Turso funcionan; el mapa y el calendario todavía requieren la implementación pendiente de lectura desde Turso (ver Problemas frecuentes).
+- Para una demo rápida: deja `TURSO_ENABLED=false`, ejecuta el ETL desde `/etl/` y usa el mapa/calendario mientras la instancia siga viva.
+- Para persistencia real: implementa las lecturas de mapa/calendario desde Turso o usa un disco persistente.
+- No subas `.env` ni tokens. Si un token se filtra, revócalo en Turso y genera otro.
+- La app no incluye autenticación; `/etl/` queda público. Protégelo si no es intencional.
+
+Para desarrollo local en Windows:
+
+```bash
+python run.py
+```
+
+Gunicorn es para Linux/Render; en Windows usa `run.py`.
