@@ -17,7 +17,7 @@ principal, no a esta pestaña.
 
 El **Dashboard** (`/dashboard/`) usa el área guardada por el mapa y la API
 `/api/dashboard/summary`. En modo local lee `data/moviris_staging.db`; con
-`TURSO_ENABLED=true` todavía devuelve `501`, igual que el mapa y el calendario.
+`TURSO_ENABLED=true` lee de Turso, igual que el mapa y el calendario.
 
 ## 1. Arranque rápido
 
@@ -235,9 +235,10 @@ El resumen JSON incluye `mode` (`local`/`turso`), `pushed` y `pushed_rows`.
 | `GET` | `/api/calendario/matrix` | Matriz año × mes y semanas críticas del área. |
 | `GET` | `/api/calendario/month` | Detalle diario de un mes (`year`, `month`). |
 
-En modo local, `stats`, `map`, `cells` y `mask` leen `data/moviris_staging.db`.
-No hay conexión con Turso en esas rutas. `/api/mapa/*` y `/api/calendario/*`
-leen el mismo staging; con `TURSO_ENABLED=true` responden `501`.
+`stats`, `map`, `cells`, `mask` y los endpoints de mapa, calendario y
+dashboard respetan `TURSO_ENABLED`: con `false` leen el staging local y con
+`true` consultan Turso. Con Turso activo, esas lecturas ya no dependen de la
+base local.
 
 ## 7. Metodología ETL
 
@@ -277,13 +278,13 @@ En modo local no hay espera de sincronización.
 | El CSV no se acepta | Debe tener `latitude`, `longitude` y `acq_date`. |
 | La subida supera 512 MB | Divide el archivo o usa un ZIP más pequeño. |
 | No existe el staging local | Ejecuta el ETL desde la pestaña o el CLI. |
-| El mapa no carga o no muestra teselas | Verifica Internet (Leaflet/OpenStreetMap) y que exista staging; usa `TURSO_ENABLED=false`. |
+| El mapa no carga o no muestra teselas | Verifica Internet (Leaflet/OpenStreetMap) y que haya datos en el modo activo (staging local o Turso). |
 | El fondo del mapa tiene otro estilo | Es OpenStreetMap, el fondo gratuito sin key; CARTO ahora requiere una key gratuita. Las celdas y la API siguen igual. |
-| `/api/mapa/*` responde `501` | El mapa todavía no lee de Turso; usa `TURSO_ENABLED=false`. |
-| El calendario no muestra datos | Verifica que exista staging y que `TURSO_ENABLED=false`; ejecuta el ETL si está vacío. |
+| `/api/mapa/*` responde `503` | No hay datos en el modo activo o Turso no responde; revisa el ETL o las credenciales de Turso. |
+| El calendario no muestra datos | Verifica que haya datos en el modo activo (staging local o Turso) y ejecuta/sincroniza el ETL si está vacío. |
 | La matriz del calendario se corta en móvil | Es el scroll interno de `.matrix-wrap`; desliza la tabla horizontalmente. |
-| `/api/calendario/*` responde `501` | El calendario hereda `_connect()` del mapa y todavía no lee de Turso; usa `TURSO_ENABLED=false`. |
-| El Dashboard no muestra datos | Verifica que exista staging local (`TURSO_ENABLED=false`) y ejecuta el ETL; con Turso activo el Dashboard aún devuelve `501`. |
+| `/api/calendario/*` responde `503` | No hay datos en el modo activo o Turso no responde; revisa el ETL o las credenciales. |
+| El Dashboard no muestra datos | Verifica que haya datos en el modo activo (staging local o Turso) y ejecuta/sincroniza el ETL si está vacío. |
 | El puerto 5000 está ocupado | Detén la instancia anterior o `python run.py --port 8080`. |
 
 ## 10. Seguridad
@@ -322,10 +323,10 @@ Notas importantes:
 
 - Usa **un solo worker** de Gunicorn: el estado de los trabajos ETL vive en memoria del proceso.
 - El disco de Render es **efímero**. La base `data/moviris_staging.db` no se sube al repositorio y no sobrevive a un reinicio o redeploy.
-- Con `TURSO_ENABLED=false`, el ETL puede generar el staging local para una demo, pero el mapa y el calendario lo pierden al reiniciar.
-- Con `TURSO_ENABLED=true`, las lecturas que ya usan Turso funcionan; el mapa y el calendario todavía requieren la implementación pendiente de lectura desde Turso (ver Problemas frecuentes).
-- Para una demo rápida: deja `TURSO_ENABLED=false`, ejecuta el ETL desde `/etl/` y usa el mapa/calendario mientras la instancia siga viva.
-- Para persistencia real: implementa las lecturas de mapa/calendario desde Turso o usa un disco persistente.
+- Con `TURSO_ENABLED=false`, el ETL puede generar el staging local para una demo, pero el mapa, el calendario y el dashboard lo pierden al reiniciar.
+- Con `TURSO_ENABLED=true`, mapa, calendario y dashboard leen directo de Turso; no dependen del disco efímero de Render. El ETL sigue usando staging local para procesar y luego subir a Turso.
+- Para una demo persistente en Render, usa `TURSO_ENABLED=true` y sincroniza los datos en Turso.
+- Para desarrollo local sin Turso, usa `TURSO_ENABLED=false` y ejecuta el ETL.
 - No subas `.env` ni tokens. Si un token se filtra, revócalo en Turso y genera otro.
 - La app no incluye autenticación; `/etl/` queda público. Protégelo si no es intencional.
 

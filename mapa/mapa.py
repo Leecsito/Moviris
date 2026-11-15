@@ -18,8 +18,8 @@ Parámetros de /cells y /csv:
     start, end                 fechas YYYY-MM-DD
     conf                       confianza mínima: 0 (todas), 1 (nominal+), 2 (alta)
 
-Lee data/moviris_staging.db en modo solo lectura. Si TURSO_ENABLED=true
-responde 501: hay que conectar _connect() con backend/db.py antes de usarlo.
+Lee data/moviris_staging.db en modo local o Turso cuando
+TURSO_ENABLED=true.
 """
 import csv
 import io
@@ -29,6 +29,8 @@ from pathlib import Path
 
 from flask import (Blueprint, Response, abort, jsonify, request,
                    send_from_directory, stream_with_context)
+
+from backend.db import TursoConnection
 
 COMPONENT_DIR = Path(__file__).resolve().parent
 ROOT = COMPONENT_DIR.parent
@@ -80,7 +82,7 @@ def _turso_on():
 
 def _connect():
     if _turso_on():
-        raise ApiError("El mapa todavía no lee de Turso. Usa TURSO_ENABLED=false.", 501)
+        return TursoConnection()
     if not STAGING.exists():
         raise ApiError("No hay datos locales. Ejecuta primero el ETL.", 503)
     con = sqlite3.connect(STAGING.as_uri() + "?mode=ro", uri=True, timeout=10)

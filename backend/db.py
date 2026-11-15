@@ -34,6 +34,59 @@ class DatabaseError(RuntimeError):
     """Error de conexión o de consulta contra Turso o el staging local."""
 
 
+class TursoCursor:
+    """Adapta un ResultSet de libSQL a la interfaz mínima de un cursor sqlite3."""
+
+    def __init__(self, result):
+        self._rows = list(result.rows)
+        self._index = 0
+        self.columns = list(result.columns or [])
+
+    def fetchone(self):
+        if self._index >= len(self._rows):
+            return None
+        row = self._rows[self._index]
+        self._index += 1
+        return row
+
+    def fetchall(self):
+        rows = self._rows[self._index:]
+        self._index = len(self._rows)
+        return rows
+
+    def fetchmany(self, size=1):
+        rows = self._rows[self._index:self._index + size]
+        self._index += len(rows)
+        return rows
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
+class TursoConnection:
+    """Conexión de lectura a Turso con la misma interfaz que sqlite3.Connection."""
+
+    def __init__(self):
+        try:
+            url, token = turso_config(load_env())
+            self._client = libsql_client.create_client_sync(url, auth_token=token)
+        except Exception as exc:
+            raise DatabaseError(f"Turso: {exc}") from exc
+
+    def execute(self, sql, args=()):
+        try:
+            result = self._client.execute(sql, tuple(args))
+        except Exception as exc:
+            raise DatabaseError(f"Turso: {exc}") from exc
+        return TursoCursor(result)
+
+    def close(self):
+        try:
+            self._client.close()
+        except Exception:
+            pass
+
+
 # ---------------------------------------------------------------------------
 # Fuentes de datos
 # ---------------------------------------------------------------------------

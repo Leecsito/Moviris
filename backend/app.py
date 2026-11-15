@@ -734,6 +734,19 @@ def mask_endpoint():
 # -------------------------------- Errores ---------------------------------
 
 
+@app.errorhandler(DatabaseError)
+def database_error(error):
+    return (
+        jsonify(
+            {
+                "error": "No se pudieron consultar los datos.",
+                "detail": str(error),
+            }
+        ),
+        503,
+    )
+
+
 @app.errorhandler(413)
 def payload_too_large(_error):
     return (

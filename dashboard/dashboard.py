@@ -7,7 +7,7 @@ Integración en backend/app.py (después de los blueprints del mapa y del calend
     app.register_blueprint(dashboard_bp)
 
 Reutiliza _connect() y ApiError de mapa/mapa.py y los parámetros de
-calendario/calendario.py: cuando se conecte Turso en mapa.py, el dashboard lo hereda.
+calendario/calendario.py; lee el staging local o Turso según TURSO_ENABLED.
 
 Rutas:
     GET /dashboard/                 página

@@ -6,8 +6,8 @@ Integración en backend/app.py (después de registrar el blueprint del mapa):
     from calendario.calendario import bp as calendario_bp
     app.register_blueprint(calendario_bp)
 
-Reutiliza _connect(), ApiError y _number() de mapa/mapa.py: cuando se conecte
-Turso en mapa.py, el calendario lo hereda sin cambios.
+Reutiliza _connect(), ApiError y _number() de mapa/mapa.py y lee el staging
+local o Turso según TURSO_ENABLED.
 
 Rutas:
     GET /calendario/               página

@@ -7,7 +7,7 @@
 **Base de datos:** Turso (libSQL) para publicación remota y SQLite local para staging  
 **Fuente de datos:** NASA FIRMS (MODIS y VIIRS, archivo y NRT)  
 **Entorno de ejecución:** Python 3.10+ (Windows / Linux)  
-**Estado actual:** Modo local activo (`TURSO_ENABLED=false`); bienvenida en `/`, componente Inicio en `/inicio/`, mapa en `/mapa/`, calendario en `/calendario/`, Dashboard con API en `/dashboard/` y ETL en `/etl/`
+**Estado actual:** Modo local por defecto (`TURSO_ENABLED=false`), con lectura Turso disponible al activar `true`; bienvenida en `/`, componente Inicio en `/inicio/`, mapa en `/mapa/`, calendario en `/calendario/`, Dashboard con API en `/dashboard/` y ETL en `/etl/`
 
 > [!IMPORTANT]
 > **Modo local activo.** El proyecto arranca con `TURSO_ENABLED=false`. En este modo la pestaña ETL, los endpoints de lectura y el CLI trabajan únicamente contra `data/moviris_staging.db`; no se consulta ni se escribe en Turso. Para reconectar, cambia `TURSO_ENABLED=true` en `.env`. No hay botón de conexión en la interfaz.
@@ -341,10 +341,9 @@ app.register_blueprint(mapa_bp)
 
 #### Fuente de datos y modo
 
-- Lee `data/moviris_staging.db` en modo **solo lectura**.
-- Con `TURSO_ENABLED=false` funciona contra el staging local.
-- Con `TURSO_ENABLED=true` responde `501` a propósito: el mapa todavía no lee de Turso; hay que conectar `_connect()` con `backend/db.py` antes de usarlo.
-- Si no existe staging o está vacío, responde `503`.
+- Con `TURSO_ENABLED=false` lee `data/moviris_staging.db` en modo **solo lectura**.
+- Con `TURSO_ENABLED=true` lee directamente de Turso mediante `TursoConnection` (`backend/db.py`).
+- Si no hay datos en el modo activo o Turso no responde, responde `503`.
 - El mapa no usa el header como HTML copiado: monta `#site-header` y carga `/header/*`, igual que las demás páginas.
 - **Responsive:** a partir de 900 px el mapa pasa arriba y el panel debajo; a partir de 600 px los controles ocupan el ancho completo y el mapa mide 55dvh (mínimo 300 px). `script.js` usa `ResizeObserver` + `orientationchange` para llamar a `map.invalidateSize()`, de modo que Leaflet se adapta al cambiar el layout.
 - Leaflet 1.9.4 se carga desde CDN y las teselas base son de **OpenStreetMap**, sin API key. OpenStreetMap es gratuito y financiado por donaciones; su política pide tráfico moderado y mantener la atribución visible. Para una demo local es suficiente; si el tráfico crece, conviene una key gratuita de CARTO, otro proveedor o teselas propias.
@@ -381,11 +380,10 @@ app.register_blueprint(calendario_bp)
 
 #### Fuente de datos y modo
 
-- Reutiliza `_connect()`, `ApiError` y `_number()` de `mapa/mapa.py`; cuando el mapa se conecte a Turso, el calendario lo hereda sin cambios.
-- Lee `data/moviris_staging.db` en modo **solo lectura**.
-- Con `TURSO_ENABLED=false` funciona contra el staging local.
-- Con `TURSO_ENABLED=true` responde `501` igual que el mapa, porque comparte `_connect()`.
-- Si no existe staging o está vacío, responde `503`.
+- Reutiliza `_connect()`, `ApiError` y `_number()` de `mapa/mapa.py`; hereda el modo local o Turso.
+- Con `TURSO_ENABLED=false` lee `data/moviris_staging.db` en modo **solo lectura**.
+- Con `TURSO_ENABLED=true` lee directamente de Turso.
+- Si no hay datos en el modo activo o Turso no responde, responde `503`.
 - El calendario monta `#site-header` y carga `/header/*`; no copia el HTML del header.
 - **Área de interés:** la lee de la URL o de `localStorage['moviris.aoi']` (la misma clave que usa el mapa) y la guarda al cambiar `conf`. Si el usuario viene del mapa, conserva la zona.
 - **CSV:** el botón **Descargar CSV** llama a `/api/mapa/csv` con el área y el rango visible; no hay endpoint CSV propio en el calendario.
@@ -418,8 +416,8 @@ CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi']`).
 - **Parámetros:** `south`, `north`, `west`, `east` y `conf` (`0`, `1` o `2`).
 - **Respuesta:** `min_date`, `max_date`, `totals`, `months`, `year_cells` y `coverage`.
 - Reutiliza `_area_params()` del calendario y `_connect()` del mapa.
-- Con `TURSO_ENABLED=true` responde `501`, igual que el mapa y el calendario.
-- Sin staging local responde `503`.
+- Con `TURSO_ENABLED=false` lee el staging local; con `true` lee Turso.
+- Si no hay datos en el modo activo o Turso no responde, responde `503`.
 - El CSV de celdas-día se descarga desde `/api/mapa/csv`, no desde un endpoint propio.
 - Chart.js se carga desde CDN; si no hay Internet, la página avisa y no dibuja los gráficos.
 - Monta `#site-header` y carga `/header/*`; el header marca **Dashboard**.
@@ -497,7 +495,7 @@ CSV. Usa la misma área que el mapa (`localStorage['moviris.aoi']`).
 | `GET` | `/api/cells` | Celdas con filtros (local o Turso) |
 | `GET` | `/api/mask` | Fuentes no vegetales (local o Turso) |
 
-> `/api/map`, `/api/cells` y `/api/mask` son los endpoints heredados de `backend/db.py`. `/api/mapa/*` pertenece al blueprint del componente Mapa y `/api/calendario/*` al blueprint del Calendario; ambos leen directamente el staging local y no son el mismo endpoint.
+> `/api/map`, `/api/cells` y `/api/mask` son los endpoints heredados de `backend/db.py`. `/api/mapa/*` pertenece al blueprint del componente Mapa, `/api/calendario/*` al Calendario y `/api/dashboard/*` al Dashboard; todos respetan `TURSO_ENABLED` y no son el mismo endpoint.
 
 #### Detalle de `POST /api/upload`
 
@@ -795,8 +793,8 @@ confidence_max, sensors, status, z_score, is_nrt
 ```
 
 - Lee `data/moviris_staging.db` en modo solo lectura.
-- `TURSO_ENABLED=true` → `501` (el mapa aún no lee de Turso).
-- Staging inexistente/vacío → `503`.
+- `TURSO_ENABLED=true` lee de Turso; si la conexión falla → `503`.
+- Sin datos en el modo activo → `503`.
 - Parámetros inválidos → `400` con `{ "error": "..." }`.
 - El CSV de un área amplia puede ser grande (el ejemplo de Ecuador completo superó los 19 MB); se transmite por bloques de 5.000 filas.
 
@@ -831,8 +829,8 @@ El calendario comparte los parámetros de área y confianza del mapa, pero usa t
 **`GET /api/calendario/month`:** devuelve `year`, `month` y `days`; cada día incluye su estado y sus valores. Octubre de 2026 devolvió 30 días.
 
 - Reutiliza `_connect()`, `ApiError` y `_number()` de `mapa/mapa.py`.
-- `TURSO_ENABLED=true` → `501` (el calendario aún no lee de Turso).
-- Staging inexistente/vacío → `503`.
+- `TURSO_ENABLED=true` lee de Turso; si la conexión falla → `503`.
+- Sin datos en el modo activo → `503`.
 - Sin área o sin `year`/`month` → `400` con `{ "error": "..." }`.
 
 ### J. Errores HTTP
@@ -1145,7 +1143,7 @@ modo anteriores en memoria.
 3. Elige fechas (o usa 90 días / 1 año / Todo) y la confianza mínima.
 4. Pulsa **Aplicar** para consultar celdas y ver los KPIs en el panel.
 5. Usa **Descargar CSV** para exportar las celdas-día del área y fechas.
-6. El mapa lee el staging local en modo solo lectura. Con `TURSO_ENABLED=true` la API del mapa responde `501`; con staging ausente, `503`.
+6. El mapa lee el staging local o Turso según `TURSO_ENABLED`. Si no hay datos o Turso falla, `503`.
 7. Leaflet y las teselas de OpenStreetMap se cargan desde CDN; el mapa necesita conexión a Internet. OpenStreetMap no requiere key, pero su política pide tráfico moderado y atribución visible. Si el fondo no carga, revisa la conexión; para producción con alto tráfico, usa una key gratuita de CARTO o teselas propias.
 
 ### G. Uso del calendario
@@ -1157,7 +1155,7 @@ modo anteriores en memoria.
 5. Pulsa una celda de la matriz para abrir el detalle diario de ese mes.
 6. Usa **Descargar CSV** para exportar el área y el rango visible con el endpoint del mapa (`/api/mapa/csv`).
 7. El enlace **Cambiar en el mapa** abre `/mapa/` conservando el área de interés.
-8. El calendario lee el staging local en modo solo lectura. Con `TURSO_ENABLED=true` responde `501`; con staging ausente, `503`.
+8. El calendario lee el staging local o Turso según `TURSO_ENABLED`. Si no hay datos o Turso falla, `503`.
 
 ### H. Uso del CLI
 
@@ -1314,7 +1312,7 @@ Se arrancó el backend con credenciales de Turso inválidas y `TURSO_ENABLED=fal
 | Header en `/dashboard/` | Pestaña **Dashboard** activa |
 | Contenido | Título “Dashboard · MOVIRIS”, KPIs y cinco gráficos |
 | API local | `/api/dashboard/summary` → `200` con `min_date`, `max_date`, `totals`, `months`, `year_cells` y `coverage` |
-| Modo Turso | `/api/dashboard/summary` → `501` hasta conectar el mapa con Turso |
+| Modo Turso | `/api/dashboard/summary` → `200` con los datos de Turso |
 | Consola | Sin errores propios; Chart.js requiere Internet |
 | Responsive | Sin overflow horizontal en 1440 px y 390 px |
 
@@ -1344,8 +1342,8 @@ No se consultó ni modificó Turso durante la implementación del modo local ni 
 16. **Servidor de desarrollo:** `run.py` usa Flask sin WSGI de producción.
 17. **Enlaces de Inicio:** los CTA a `/mapa/` y `/calendario/` ya funcionan; todas las pestañas del header tienen página.
 18. **Animación de bienvenida:** la red de puntos usa `requestAnimationFrame` y la órbita es CSS; en equipos de bajas prestaciones puede consumir CPU. Se puede reducir el número de nodos o desactivar con `prefers-reduced-motion`.
-19. **Dashboard implementado, lectura local:** `/dashboard/` ya tiene KPIs, gráficos y `/api/dashboard/summary`, pero reutiliza `_connect()` del mapa. Con `TURSO_ENABLED=true` responde `501`; para persistencia en Render falta conectar la lectura a Turso o usar un disco persistente.
-20. **El mapa y el calendario solo leen el staging local:** con `TURSO_ENABLED=true`, `/api/mapa/*` y `/api/calendario/*` responden `501`. Al conectar `_connect()` con `backend/db.py`, el calendario hereda la conexión sin cambios.
+19. **Dashboard implementado:** `/dashboard/` tiene KPIs, gráficos y `/api/dashboard/summary`; reutiliza `_connect()` del mapa y lee el staging local o Turso. El CSV de celdas se sigue descargando desde `/api/mapa/csv`.
+20. **Mapa, calendario y dashboard leen Turso:** `_connect()` devuelve `TursoConnection` cuando `TURSO_ENABLED=true`, con un adaptador de cursor compatible con `sqlite3`. Las consultas son de solo lectura; si Turso falla, la API responde `503`. El staging local sigue siendo necesario para ejecutar el ETL.
 21. **Dependencia de CDN y teselas:** Leaflet y OpenStreetMap se cargan desde Internet. OpenStreetMap no requiere key, pero su infraestructura es financiada por donaciones y pide tráfico moderado; para producción con alto tráfico conviene una key gratuita de CARTO, otro proveedor o teselas propias. Las celdas y la API siguen funcionando sin cambiar el blueprint.
 22. **Límites del mapa:** `/api/mapa/cells` envía hasta 20.000 celdas por defecto (máximo 30.000) y el CSV puede ser grande; para áreas continentales conviene filtrar fechas o confianza.
 23. **Responsive del mapa:** el breakpoint de 900 px apila mapa y panel, y el de 600 px ajusta controles y altura. El mapa depende de `map.invalidateSize()` (ResizeObserver/orientationchange); si se agrega otro contenedor o un cambio de layout, hay que conservar esa llamada.
