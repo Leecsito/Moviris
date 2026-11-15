@@ -24,10 +24,18 @@ from pathlib import Path
 
 from flask import Blueprint, abort, jsonify, request, send_from_directory
 
+from backend.cache import (
+    TTLCache,
+    clave_params,
+    modo_datos,
+    respuesta_cache,
+)
 from mapa.mapa import ApiError, _connect, _number
 
 COMPONENT_DIR = Path(__file__).resolve().parent
 STATIC_FILES = {"style.css", "script.js"}
+_MATRIX_CACHE = TTLCache(ttl=300, maxsize=32)
+_MONTH_CACHE = TTLCache(ttl=300, maxsize=64)
 
 AREA = "cell_lat BETWEEN ? AND ? AND cell_lon BETWEEN ? AND ? AND confidence_max >= ?"
 # celdas-día activas, detecciones, celdas-día críticas, celdas-día inusuales
@@ -100,6 +108,11 @@ def _current_vs_median(con, area, min_date, max_date):
 @bp.get("/api/calendario/matrix")
 def matrix():
     area = _area_params()
+    key = ("matrix", modo_datos(), *clave_params(*area))
+    cached = _MATRIX_CACHE.get(key)
+    if cached is not None:
+        return respuesta_cache(cached, hit=True)
+
     con = _connect()
     try:
         bounds = con.execute("SELECT MIN(acq_date), MAX(acq_date) FROM fire_cells_daily").fetchone()
@@ -123,14 +136,16 @@ def matrix():
     finally:
         con.close()
 
-    return jsonify({
+    payload = {
         "min_date": bounds[0],
         "max_date": bounds[1],
         "metrics": ["cell_days", "detections", "critical", "unusual"],
         "months": [_ints(r) for r in months],   # [año, mes, m1, m2, m3, m4]
         "weeks": [_ints(r) for r in weeks],     # [año, semana, m1, m2, m3, m4]
         "current": current,
-    })
+    }
+    _MATRIX_CACHE.set(key, payload)
+    return respuesta_cache(payload)
 
 
 @bp.get("/api/calendario/month")
@@ -144,6 +159,11 @@ def month_detail():
     if not (2000 <= year <= 2100 and 1 <= month <= 12):
         raise ApiError("Año o mes fuera de rango.")
 
+    key = ("month", modo_datos(), *clave_params(*area), year, month)
+    cached = _MONTH_CACHE.get(key)
+    if cached is not None:
+        return respuesta_cache(cached, hit=True)
+
     con = _connect()
     try:
         rows = con.execute(
@@ -154,8 +174,10 @@ def month_detail():
     finally:
         con.close()
 
-    return jsonify({
+    payload = {
         "year": year,
         "month": month,
         "days": [[r[0]] + _ints(r[1:]) for r in rows],  # [fecha, m1, m2, m3, m4]
-    })
+    }
+    _MONTH_CACHE.set(key, payload)
+    return respuesta_cache(payload)

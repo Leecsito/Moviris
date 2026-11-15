@@ -264,6 +264,21 @@ Con los 8 CSV de ejemplo (~560.000 detecciones, 43 MB):
 
 En modo local no hay espera de sincronización.
 
+### Caché de lecturas
+
+Las consultas de mapa, dashboard, calendario y rango de fechas usan una caché
+en memoria con TTL de **5 minutos**:
+
+- La segunda consulta idéntica responde con `X-Cache: HIT` y **no consulta Turso**.
+- En pruebas locales con Turso, el dashboard pasó de ~4,3 s a ~27 ms en la
+  segunda consulta; las celdas del mapa se reutilizan sin volver a agregar la
+  base.
+- La caché se limpia automáticamente al terminar un ETL o una sincronización.
+- El navegador también puede reutilizar la respuesta durante 60 s; si acabas de
+  actualizar datos, recarga la página.
+- La caché es por proceso: usa **un solo worker** de Gunicorn (el comando de
+  despliegue recomendado). Con varios workers cada uno tendría su propia caché.
+
 ## 9. Problemas frecuentes
 
 | Síntoma | Solución |
@@ -285,6 +300,7 @@ En modo local no hay espera de sincronización.
 | La matriz del calendario se corta en móvil | Es el scroll interno de `.matrix-wrap`; desliza la tabla horizontalmente. |
 | `/api/calendario/*` responde `503` | No hay datos en el modo activo o Turso no responde; revisa el ETL o las credenciales. |
 | El Dashboard no muestra datos | Verifica que haya datos en el modo activo (staging local o Turso) y ejecuta/sincroniza el ETL si está vacío. |
+| El mapa/dashboard muestra datos viejos | La caché dura 5 min; al terminar un ETL se limpia. Recarga la página (el navegador puede cachear 60 s). |
 | El puerto 5000 está ocupado | Detén la instancia anterior o `python run.py --port 8080`. |
 
 ## 10. Seguridad

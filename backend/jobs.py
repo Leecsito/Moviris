@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from etl.etl import DEFAULT_STAGING, EtlError, load_env, push_staging, run_etl
+from backend.cache import clear_all_caches
 from backend.settings import turso_enabled
 
 MAX_LOGS = 500
@@ -278,6 +279,11 @@ class JobManager:
             job["can_sync"] = bool(can_sync)
             if self._current == job_id:
                 self._current = None
+
+        # Datos nuevos (o un staging parcial): invalida mapa/calendario/dashboard.
+        if status in {"done", "error"}:
+            clear_all_caches()
+
         if status == "done":
             self._log(job_id, "Proceso finalizado correctamente.")
         else:

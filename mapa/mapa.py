@@ -30,6 +30,12 @@ from pathlib import Path
 from flask import (Blueprint, Response, abort, jsonify, request,
                    send_from_directory, stream_with_context)
 
+from backend.cache import (
+    TTLCache,
+    clave_params,
+    modo_datos,
+    respuesta_cache,
+)
 from backend.db import TursoConnection
 
 COMPONENT_DIR = Path(__file__).resolve().parent
@@ -42,6 +48,8 @@ MAX_CELLS = 30000       # tope máximo aceptado en ?limit=
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 bp = Blueprint("mapa", __name__)
+_META_CACHE = TTLCache(ttl=300, maxsize=2)
+_CELLS_CACHE = TTLCache(ttl=300, maxsize=12)
 
 
 # ---------------------------------------------------------------- páginas
@@ -133,6 +141,11 @@ def _sql_params(p):
 # ---------------------------------------------------------------- API
 @bp.get("/api/mapa/meta")
 def meta():
+    key = ("meta", modo_datos())
+    cached = _META_CACHE.get(key)
+    if cached is not None:
+        return respuesta_cache(cached, hit=True)
+
     con = _connect()
     try:
         row = con.execute("SELECT MIN(acq_date), MAX(acq_date) FROM fire_cells_daily").fetchone()
@@ -140,7 +153,10 @@ def meta():
         con.close()
     if not row or not row[0]:
         raise ApiError("La base no tiene datos.", 503)
-    return jsonify({"min_date": row[0], "max_date": row[1]})
+
+    payload = {"min_date": row[0], "max_date": row[1]}
+    _META_CACHE.set(key, payload)
+    return respuesta_cache(payload)
 
 
 CELL_COLUMNS = ["lat", "lon", "days", "detections", "frp_max",
@@ -154,6 +170,11 @@ def cells():
         limit = max(1, min(int(request.args.get("limit", DEFAULT_CELLS)), MAX_CELLS))
     except ValueError:
         limit = DEFAULT_CELLS
+
+    key = ("cells", modo_datos(), *clave_params(*params), limit)
+    cached = _CELLS_CACHE.get(key)
+    if cached is not None:
+        return respuesta_cache(cached, hit=True)
 
     con = _connect()
     try:
@@ -180,13 +201,15 @@ def cells():
 
     rows.sort(key=lambda r: (r[2], r[3] or 0), reverse=True)
     shown = rows[:limit]
-    return jsonify({
+    payload = {
         "columns": CELL_COLUMNS,
         "cells": [list(r) for r in shown],
         "summary": summary,
         "shown": len(shown),
         "truncated": len(rows) > len(shown),
-    })
+    }
+    _CELLS_CACHE.set(key, payload)
+    return respuesta_cache(payload)
 
 
 CSV_COLUMNS = ["acq_date", "cell_lat", "cell_lon", "detections", "frp_max",

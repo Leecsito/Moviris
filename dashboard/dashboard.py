@@ -22,11 +22,18 @@ from pathlib import Path
 
 from flask import Blueprint, abort, jsonify, send_from_directory
 
+from backend.cache import (
+    TTLCache,
+    clave_params,
+    modo_datos,
+    respuesta_cache,
+)
 from calendario.calendario import AREA, METRICS, _area_params, _ints
 from mapa.mapa import ApiError, _connect
 
 COMPONENT_DIR = Path(__file__).resolve().parent
 STATIC_FILES = {"style.css", "script.js"}
+_SUMMARY_CACHE = TTLCache(ttl=300, maxsize=32)
 
 bp = Blueprint("dashboard", __name__)
 
@@ -78,6 +85,11 @@ def _coverage(rows):
 @bp.get("/api/dashboard/summary")
 def summary():
     area = _area_params()
+    key = ("summary", modo_datos(), *clave_params(*area))
+    cached = _SUMMARY_CACHE.get(key)
+    if cached is not None:
+        return respuesta_cache(cached, hit=True)
+
     con = _connect()
     try:
         bounds = con.execute("SELECT MIN(acq_date), MAX(acq_date) FROM fire_cells_daily").fetchone()
@@ -111,7 +123,7 @@ def summary():
         con.close()
 
     t = _ints(totals)
-    return jsonify({
+    payload = {
         "min_date": bounds[0],
         "max_date": bounds[1],
         "totals": {"cells": t[0], "cell_days": t[1], "detections": t[2],
@@ -119,4 +131,6 @@ def summary():
         "months": [_ints(r) for r in months],        # [año, mes, m1, m2, m3, m4]
         "year_cells": [_ints(r) for r in year_cells],  # [año, celdas con focos]
         "coverage": _coverage(coverage),              # [año, solo MODIS, ambos, solo VIIRS]
-    })
+    }
+    _SUMMARY_CACHE.set(key, payload)
+    return respuesta_cache(payload)

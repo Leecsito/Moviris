@@ -844,6 +844,17 @@ El calendario comparte los parámetros de área y confianza del mapa, pero usa t
 | `500` | Error interno no controlado |
 | `503` | No se pudieron consultar los datos (staging ausente o Turso caído) |
 
+### K. Caché de consultas
+
+- `backend/cache.py` implementa `TTLCache` (LRU con vencimiento).
+- Usan caché: `/api/mapa/meta`, `/api/mapa/cells`, `/api/dashboard/summary`, `/api/calendario/matrix` y `/api/calendario/month`.
+- TTL por defecto: **300 s**. El tamaño máximo varía por endpoint (el mapa conserva 12 respuestas; el calendario, 32/64).
+- La clave incluye el modo (`local` o `turso`) y los parámetros normalizados, para no mezclar áreas ni respuestas.
+- Las respuestas incluyen `X-Cache: HIT|MISS` y `Cache-Control: private, max-age=60`.
+- `JobManager._finish()` llama a `clear_all_caches()` al terminar un ETL o sync (`done`/`error`), de modo que los datos nuevos se vean sin esperar el TTL.
+- La caché es por proceso: con varios workers de Gunicorn cada uno tendría la suya. El despliegue recomendado usa **un solo worker**.
+- Si Turso se actualiza desde fuera de la app, el cambio se refleja al vencer el TTL (5 min) o al reiniciar/redeployar.
+
 ---
 
 ## 6. Esquema de Datos
@@ -1213,6 +1224,7 @@ curl -X POST http://127.0.0.1:5000/api/etl/run \
 | `MAX_LOGS` | `backend/jobs.py` | `500` | Líneas de log por job |
 | `MAX_JOBS` | `backend/jobs.py` | `20` | Historial de jobs |
 | `STATS_TTL_SECONDS` | `backend/db.py` | `12` | Caché de estadísticas |
+| TTL mapa/dashboard/calendario | `backend/cache.py` y módulos | `300 s` | Caché de consultas pesadas |
 | Host / puerto | `run.py` | `127.0.0.1:5000` | Servidor de desarrollo |
 
 ---
