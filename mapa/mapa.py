@@ -175,31 +175,39 @@ def cells():
         limit = max(1, min(int(request.args.get("limit", DEFAULT_CELLS)), MAX_CELLS))
     except ValueError:
         limit = DEFAULT_CELLS
+    try:
+        grid = round(float(request.args.get("grid", 0.01)), 3)
+    except (TypeError, ValueError):
+        grid = 0.01
+    grid = max(0.01, min(5.0, grid))
 
-    key = ("cells", modo_datos(), *clave_params(*params), limit)
+    key = ("cells", modo_datos(), *clave_params(*params), limit, grid)
     cached = _CELLS_CACHE.get(key)
     if cached is not None:
         return respuesta_cache(cached, hit=True)
 
+    # Agrupación por cuadrícula: en zoom lejano se usa 0.5°/1° para cubrir
+    # todo el país con pocas celdas; al acercarse, el frontend pide 0.01°.
+    cell_expr = (
+        "SELECT ROUND(ROUND(cell_lat / ?) * ?, 5) AS lat, "
+        "ROUND(ROUND(cell_lon / ?) * ?, 5) AS lon, "
+        "COUNT(*) AS days, SUM(detections) AS detections, "
+        "MAX(frp_max) AS frp_max, SUM(status = 'critical') AS critical_days, "
+        "SUM(status = 'unusual') AS unusual_days, MAX(acq_date) AS last_date, "
+        "MAX(confidence_max) AS conf_max "
+        f"FROM fire_cells_daily WHERE {WHERE} GROUP BY lat, lon"
+    )
     con = _connect()
     try:
         summary_row = con.execute(
             "SELECT COUNT(*), COALESCE(SUM(days), 0), COALESCE(SUM(detections), 0), "
             "COALESCE(SUM(critical_days), 0), COALESCE(SUM(unusual_days), 0) "
-            "FROM ("
-            "SELECT cell_lat, cell_lon, COUNT(*) AS days, SUM(detections) AS detections, "
-            "SUM(status = 'critical') AS critical_days, SUM(status = 'unusual') AS unusual_days "
-            f"FROM fire_cells_daily WHERE {WHERE} GROUP BY cell_lat, cell_lon"
-            ")",
-            _sql_params(params),
+            f"FROM ({cell_expr})",
+            (grid, grid, grid, grid, *_sql_params(params)),
         ).fetchone()
         rows = con.execute(
-            "SELECT cell_lat, cell_lon, COUNT(*) AS days, SUM(detections) AS detections, "
-            "MAX(frp_max), SUM(status = 'critical'), SUM(status = 'unusual'), "
-            "MAX(acq_date), MAX(confidence_max) "
-            f"FROM fire_cells_daily WHERE {WHERE} GROUP BY cell_lat, cell_lon "
-            "ORDER BY days DESC, detections DESC LIMIT ?",
-            (*_sql_params(params), limit),
+            f"{cell_expr} ORDER BY days DESC, detections DESC LIMIT ?",
+            (grid, grid, grid, grid, *_sql_params(params), limit),
         ).fetchall()
     finally:
         con.close()
@@ -224,6 +232,7 @@ def cells():
         "summary": summary,
         "shown": len(rows),
         "truncated": total_cells > len(rows),
+        "grid": grid,
     }
     _CELLS_CACHE.set(key, payload)
     return respuesta_cache(payload)
@@ -231,7 +240,7 @@ def cells():
 
 CSV_COLUMNS = ["acq_date", "cell_lat", "cell_lon", "detections", "frp_max",
                "frp_sum_norm", "confidence_max", "sensors", "status", "z_score", "is_nrt"]
-MAX_CSV_ROWS = 150_000
+MAX_CSV_ROWS = 350_000
 
 
 @bp.get("/api/mapa/csv")

@@ -46,6 +46,8 @@
   let aoiRect = null;
   let cellsLayer = null;
   let controller = null;
+  let viewTimer = null;
+  let suppressViewReloadUntil = 0;
 
   // Dibujo del área: dos clics en esquinas opuestas
   let drawing = false;
@@ -156,7 +158,10 @@
     const bounds = [[aoi.south, aoi.west], [aoi.north, aoi.east]];
     if (aoiRect) aoiRect.setBounds(bounds);
     else aoiRect = L.rectangle(bounds, AOI_STYLE).addTo(map);
-    if (fit) map.fitBounds(bounds, { padding: [24, 24] });
+    if (fit) {
+      suppressViewReloadUntil = Date.now() + 900;
+      map.fitBounds(bounds, { padding: [24, 24], animate: false });
+    }
   }
 
   function readAoiInputs() {
@@ -243,12 +248,49 @@
     return '';
   }
 
-  function query() {
-    const a = state.aoi;
-    return new URLSearchParams({
-      south: a.south, north: a.north, west: a.west, east: a.east,
+  function bboxParams(bbox, grid) {
+    const params = new URLSearchParams({
+      south: bbox.south, north: bbox.north, west: bbox.west, east: bbox.east,
       start: state.from, end: state.to, conf: state.conf,
     });
+    if (grid) params.set('grid', grid);
+    return params;
+  }
+
+  function currentView() {
+    const b = map.getBounds();
+    const south = Math.max(state.aoi.south, b.getSouth());
+    const north = Math.min(state.aoi.north, b.getNorth());
+    const west = Math.max(state.aoi.west, b.getWest());
+    const east = Math.min(state.aoi.east, b.getEast());
+    if (south >= north || west >= east) return { ...state.aoi };
+    return { south, north, west, east };
+  }
+
+  // Cuadrícula de la vista: gruesa de lejos, fina de cerca. El objetivo es
+  // cubrir toda el área visible con <= 20.000 celdas agregadas.
+  const GRID_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5];
+  const ZOOM_GRID = {
+    1: 1, 2: 0.5, 3: 0.5, 4: 0.5, 5: 0.25,
+    6: 0.2, 7: 0.1, 8: 0.05, 9: 0.02, 10: 0.01,
+  };
+
+  function gridForView(bbox) {
+    const latSpan = bbox.north - bbox.south;
+    const lonSpan = bbox.east - bbox.west;
+    const areaGrid = Math.sqrt((latSpan * lonSpan) / 20000) || 0.01;
+    const zoom = Math.max(1, Math.min(10, Math.round(map.getZoom())));
+    const base = ZOOM_GRID[zoom] || 0.01;
+    const desired = Math.max(0.01, Math.min(base, areaGrid));
+    return GRID_STEPS.find((step) => step >= desired) || GRID_STEPS[GRID_STEPS.length - 1];
+  }
+
+  function cellsQuery(bbox = currentView()) {
+    return bboxParams(bbox, gridForView(bbox));
+  }
+
+  function csvQuery() {
+    return bboxParams(state.aoi);
   }
 
   async function apply() {
@@ -260,13 +302,14 @@
     state.aoi = readAoiInputs();
     setAoi(state.aoi, false);
     readControls();
+    window.clearTimeout(viewTimer);
 
     if (controller) controller.abort();
     controller = new AbortController();
     setMsg('');
     setLoading(true);
     try {
-      const data = await getJson(`/api/mapa/cells?${query()}`, { signal: controller.signal });
+      const data = await getJson(`/api/mapa/cells?${cellsQuery()}`, { signal: controller.signal });
       lastData = data;
       render(data);
       persist();
@@ -278,6 +321,29 @@
       setLoading(false);
     }
   }
+
+  async function refreshCells() {
+    if (!state.from || !state.to || drawing) return;
+    if (controller) controller.abort();
+    controller = new AbortController();
+    try {
+      const data = await getJson(`/api/mapa/cells?${cellsQuery()}`, { signal: controller.signal });
+      lastData = data;
+      render(data);
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      console.error(error);
+      setMsg(t('No se pudieron cargar los datos.'), true);
+    }
+  }
+
+  function scheduleViewRefresh() {
+    if (drawing || Date.now() < suppressViewReloadUntil) return;
+    window.clearTimeout(viewTimer);
+    viewTimer = window.setTimeout(refreshCells, 280);
+  }
+
+  map.on('moveend zoomend', scheduleViewRefresh);
 
   function rangeLabel(from, to) {
     if (from === to) return `${from} ${t(from === 1 ? 'día' : 'días')}`;
@@ -327,11 +393,17 @@
     $('k-unus').textContent = fmt.format(s.unusual_days);
 
     const trunc = $('trunc');
-    trunc.hidden = !data.truncated;
+    const grid = Number(data.grid) || 0.01;
+    const aggregated = grid > 0.011;
+    trunc.hidden = !data.truncated && !aggregated;
     if (data.truncated) {
-      trunc.textContent = t('Se dibujan las {shown} celdas más activas de {total}. Reduce el área o las fechas para verlas todas. El CSV incluye todo.', {
+      trunc.textContent = t('Se dibujan las {shown} celdas más activas de {total}. Acerca el mapa para ver más detalle o reduce el área y las fechas.', {
         shown: fmt.format(data.shown),
         total: fmt.format(s.cells),
+      });
+    } else if (aggregated) {
+      trunc.textContent = t('Vista agregada a {grid}° para mostrar toda el área. Acerca el mapa para ver más detalle.', {
+        grid: I18N.number(grid, { maximumFractionDigits: 2 }),
       });
     }
 
@@ -405,7 +477,7 @@
     button.disabled = true;
     setMsg(t('Preparando el CSV…'));
     try {
-      const res = await fetch(`/api/mapa/csv?${query()}`);
+      const res = await fetch(`/api/mapa/csv?${csvQuery()}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Error ${res.status} al generar el CSV.`);

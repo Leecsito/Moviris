@@ -316,7 +316,7 @@ en memoria con TTL de **5 minutos**:
 | La subida supera 512 MB o Render responde `413` | Render limita el cuerpo de la petición antes de Flask. Usa el CLI (`python etl/etl.py --source ... --push`) o divide el CSV en partes más pequeñas. |
 | No existe el staging local | Ejecuta el ETL desde la pestaña o el CLI. |
 | El mapa no carga o no muestra teselas | Verifica Internet (Leaflet/OpenStreetMap) y que haya datos en el modo activo (staging local o Turso). |
-| El mapa se reinicia por memoria en Render | Ya no debe ocurrir: `/api/mapa/cells` limita en SQL y el CSV en Turso está acotado a 150.000 filas. Si vuelve, revisa los logs de Render y el tamaño del área. |
+| El mapa se reinicia por memoria en Render | Ya no debe ocurrir: `/api/mapa/cells` agrega por cuadrícula adaptativa y el CSV en Turso está acotado a 350.000 filas. Si vuelve, revisa los logs de Render y el tamaño del área. |
 | El fondo del mapa tiene otro estilo | Es OpenStreetMap, el fondo gratuito sin key; CARTO ahora requiere una key gratuita. Las celdas y la API siguen igual. |
 | `/api/mapa/*` responde `503` | No hay datos en el modo activo o Turso no responde; revisa el ETL o las credenciales de Turso. |
 | El calendario no muestra datos | Verifica que haya datos en el modo activo (staging local o Turso) y ejecuta/sincroniza el ETL si está vacío. |

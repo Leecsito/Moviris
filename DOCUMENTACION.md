@@ -362,6 +362,8 @@ app.register_blueprint(mapa_bp)
 - Si no hay datos en el modo activo o Turso no responde, responde `503`.
 - El mapa no usa el header como HTML copiado: monta `#site-header` y carga `/header/*`, igual que las demás páginas.
 - **Vista inicial mundial:** el mapa arranca en el mundo (`[-85, 85, -180, 180]`), no en Ecuador. La clave compartida es `localStorage['moviris.aoi.v2']`; las zonas rápidas son Mundo, América del Norte, América Central y Caribe, América del Sur, Europa, África, Asia y Oceanía.
+- **Vista adaptativa:** al alejar el mapa, el frontend pide celdas agregadas (hasta 0,5° o 1°) para cubrir toda el área; al acercarse, pide 0,05°/0,01°. La consulta usa el área visible dentro del AOI y se recarga al terminar un zoom o desplazamiento, con un pequeño retardo para no saturar la API.
+- **Resumen:** las tarjetas de “Resultado” corresponden al área visible y al `grid` activo; el aviso bajo los KPIs indica la resolución agregada.
 - **Responsive:** a partir de 900 px el mapa pasa arriba y el panel debajo; a partir de 600 px los controles ocupan el ancho completo y el mapa mide 55dvh (mínimo 300 px). `script.js` usa `ResizeObserver` + `orientationchange` para llamar a `map.invalidateSize()`, de modo que Leaflet se adapta al cambiar el layout.
 - Leaflet 1.9.4 se carga desde CDN y las teselas base son de **OpenStreetMap**, sin API key. OpenStreetMap es gratuito y financiado por donaciones; su política pide tráfico moderado y mantener la atribución visible. Para una demo local es suficiente; si el tráfico crece, conviene una key gratuita de CARTO, otro proveedor o teselas propias.
 - **Cambio temporal de fondo:** antes se usaban teselas de CARTO, que desde el 25/09/2026 muestran “API KEY REQUIRED” si no se configura una key gratuita. Se cambió a OpenStreetMap para poder probar el mapa sin registro; el resto del diseño y del texto no cambió. Para volver a CARTO basta añadir `?key=TU_KEY` a la URL de teselas.
@@ -835,6 +837,7 @@ El componente `/mapa/` registra su propio blueprint; sus rutas **no** son las mi
 | `end` | DATE | Sí | `YYYY-MM-DD` |
 | `conf` | INT | No | `0` todas, `1` nominal+alta, `2` solo alta; default `0` |
 | `limit` | INT | No | Solo en `/cells`; default `20000`, máximo `30000` |
+| `grid` | REAL | No | Solo en `/cells`; tamaño de celda agregada en grados (`0.01`–`5`); default `0.01` |
 
 **`GET /api/mapa/meta`:**
 
@@ -842,11 +845,14 @@ El componente `/mapa/` registra su propio blueprint; sus rutas **no** son las mi
 { "min_date": "2012-01-11", "max_date": "2026-11-14" }
 ```
 
-**`GET /api/mapa/cells`:** devuelve `columns`, `cells`, `summary`, `shown` y `truncated`. Las columnas son:
+**`GET /api/mapa/cells`:** devuelve `columns`, `cells`, `summary`, `shown`, `truncated` y `grid`. Las columnas son:
 
 ```text
 lat, lon, days, detections, frp_max, critical_days, unusual_days, last_date, conf_max
 ```
+
+- El frontend elige `grid` según el zoom y el área visible: 0,5° de lejos para cubrir todo Brasil, hasta 0,01° al acercarse. Así se ven todas las zonas sin enviar millones de puntos.
+- El resumen y el `LIMIT` se calculan en SQL; el navegador solo recibe las celdas agregadas.
 
 **`GET /api/mapa/csv`:** descarga en streaming las columnas:
 
@@ -860,7 +866,7 @@ confidence_max, sensors, status, z_score, is_nrt
 - Sin datos en el modo activo → `503`.
 - Parámetros inválidos → `400` con `{ "error": "..." }`.
 - `/api/mapa/cells` aplica el `LIMIT` en SQL (`ORDER BY days DESC, detections DESC`) y calcula el resumen con una subconsulta agregada. No materializa todas las celdas del área: con Brasil global hay más de un millón de celdas y antes el proceso superaba la memoria de Render.
-- `/api/mapa/csv` mantiene el streaming en modo local. En modo Turso, `libsql-client` devuelve el resultado completo en memoria, así que el endpoint rechaza con `413` los rangos que superan **150.000 filas**; hay que reducir el área o las fechas.
+- `/api/mapa/csv` mantiene el streaming en modo local. En modo Turso, `libsql-client` devuelve el resultado completo en memoria, así que el endpoint rechaza con `413` los rangos que superan **350.000 filas**; hay que reducir el área o las fechas.
 - El CSV de un área amplia puede ser grande (el ejemplo de Ecuador completo superó los 19 MB); se transmite por bloques de 5.000 filas en modo local.
 
 ### I. API del calendario (blueprint `calendario`)
@@ -1488,7 +1494,7 @@ No se consultó ni modificó Turso durante la implementación del modo local ni 
 19. **Dashboard implementado:** `/dashboard/` tiene KPIs, gráficos y `/api/dashboard/summary`; reutiliza `_connect()` del mapa y lee el staging local o Turso. El CSV de celdas se sigue descargando desde `/api/mapa/csv`.
 20. **Mapa, calendario y dashboard leen Turso:** `_connect()` devuelve `TursoConnection` cuando `TURSO_ENABLED=true`, con un adaptador de cursor compatible con `sqlite3`. Las consultas son de solo lectura; si Turso falla, la API responde `503`. El staging local sigue siendo necesario para ejecutar el ETL.
 21. **Dependencia de CDN y teselas:** Leaflet y OpenStreetMap se cargan desde Internet. OpenStreetMap no requiere key, pero su infraestructura es financiada por donaciones y pide tráfico moderado; para producción con alto tráfico conviene una key gratuita de CARTO, otro proveedor o teselas propias. Las celdas y la API siguen funcionando sin cambiar el blueprint.
-22. **Límites del mapa:** `/api/mapa/cells` envía hasta 20.000 celdas por defecto (máximo 30.000), pero el `LIMIT` se aplica en SQL y el resumen se calcula aparte para no cargar todas las celdas en memoria. El CSV en modo Turso está limitado a 150.000 filas; para áreas continentales conviene filtrar fechas o confianza.
+22. **Límites del mapa:** `/api/mapa/cells` envía hasta 20.000 celdas agregadas por defecto (máximo 30.000), con una cuadrícula adaptativa (0,5° de lejos, 0,01° de cerca) y el resumen calculado aparte para no cargar todas las celdas en memoria. El CSV en modo Turso está limitado a 350.000 filas; para áreas continentales conviene filtrar fechas o confianza.
 23. **Responsive del mapa:** el breakpoint de 900 px apila mapa y panel, y el de 600 px ajusta controles y altura. El mapa depende de `map.invalidateSize()` (ResizeObserver/orientationchange); si se agrega otro contenedor o un cambio de layout, hay que conservar esa llamada.
 24. **Responsive del calendario:** la matriz año × mes no cabe en 390 px por diseño. Se resuelve con scroll interno en `.matrix-wrap` y `min-width: 0` en las columnas; si se cambia la estructura de `.cols`, hay que conservar ambas reglas para no desbordar la página.
 25. **CSV del calendario:** el botón de descarga usa `/api/mapa/csv`; si el mapa cambia de endpoint o de parámetros, hay que actualizar el calendario. El calendario no tiene exportación propia.
