@@ -119,6 +119,9 @@ function makeKey() {
 
 function formatApiError(error) {
   if (!error) return t('Error desconocido.');
+  if (error.status === 413) {
+    return t('El archivo supera el límite de subida del servidor. Usa el CLI del ETL o divide el CSV en partes más pequeñas.');
+  }
   if (I18N && I18N.lang === 'en') {
     const message = String(error.message || '').trim();
     const translated = message ? I18N.t(message) : '';

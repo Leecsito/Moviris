@@ -279,6 +279,7 @@
     "Sube al menos un archivo válido antes de ejecutar el ETL.": "Upload at least one valid file before running the ETL.",
     "El servidor no devolvió el trabajo.": "The server did not return the job.",
     "El servidor no devolvió el lote de archivos.": "The server did not return the file batch.",
+    "El archivo supera el límite de subida del servidor. Usa el CLI del ETL o divide el CSV en partes más pequeñas.": "The file exceeds the server upload limit. Use the ETL CLI or split the CSV into smaller parts.",
     "El proceso terminó con un error.": "The process ended with an error.",
     "Error desconocido.": "Unknown error.",
     "Se perdió la conexión con el servidor. Recarga la página.": "The connection to the server was lost. Reload the page.",

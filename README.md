@@ -221,7 +221,16 @@ python etl/etl.py --source "C:\ruta\a\mis_csv" --include-current-year
 
 `--source` acepta una carpeta o un archivo CSV. Si no se indica, el CLI busca
 `hackathon/` en la raíz; esa carpeta es opcional y no es necesaria para la
-pestaña.
+pestaña. Las carpetas `hackathon/` y `hackaton/` están ignoradas por Git para no
+versionar los CSV crudos.
+
+> Para archivos grandes (cientos de MB) usa el CLI: Render rechaza las subidas
+> que superan su límite con `413` antes de que lleguen a Flask. Ejemplo:
+>
+> ```bash
+> python etl/etl.py --source "hackaton" --staging "data/brasil.db" --no-push
+> python etl/etl.py --push-only --staging "data/brasil.db" --no-replace
+> ```
 
 El resumen JSON incluye `mode` (`local`/`turso`), `pushed` y `pushed_rows`.
 
@@ -304,7 +313,7 @@ en memoria con TTL de **5 minutos**:
 | Turso sin conexión | Revisa `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`. |
 | `Turso está desactivado` al sincronizar | Activa `TURSO_ENABLED=true` en `.env`. |
 | El CSV no se acepta | Debe tener `latitude`, `longitude` y `acq_date`. |
-| La subida supera 512 MB | Divide el archivo o usa un ZIP más pequeño. |
+| La subida supera 512 MB o Render responde `413` | Render limita el cuerpo de la petición antes de Flask. Usa el CLI (`python etl/etl.py --source ... --push`) o divide el CSV en partes más pequeñas. |
 | No existe el staging local | Ejecuta el ETL desde la pestaña o el CLI. |
 | El mapa no carga o no muestra teselas | Verifica Internet (Leaflet/OpenStreetMap) y que haya datos en el modo activo (staging local o Turso). |
 | El fondo del mapa tiene otro estilo | Es OpenStreetMap, el fondo gratuito sin key; CARTO ahora requiere una key gratuita. Las celdas y la API siguen igual. |

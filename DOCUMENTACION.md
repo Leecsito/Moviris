@@ -724,6 +724,9 @@ Respuesta `201`:
 }
 ```
 
+> [!IMPORTANT]
+> El backend acepta hasta **512 MB** por petición, pero Render rechaza cuerpos mayores con un `413` antes de llegar a Flask. Los archivos de Brasil de 344–897 MB no se pueden subir desde `/etl/`: hay que usar el CLI (`python etl/etl.py --source ... --push`) o dividir el CSV en partes más pequeñas.
+
 ### C. `POST /api/etl/run`
 
 ```json
@@ -1130,7 +1133,7 @@ Sin degradados, sin sombras, sin neones y sin emojis. Tipografía `Inter` con fa
 6. **Progreso:** polling cada 1 s; la etapa actual se deduce del `stage` del backend y del porcentaje.
 7. **Pasos:** `Extract → Transform → Baseline → Estado → Load`. En modo local, `Load (omitido)`.
 8. **Resumen:** `detections`, `daily_rows`, `baseline_rows` y `mask_rows`; tiempo total del job.
-9. **Errores:** caja roja con `job.error`; en inglés se muestra un mensaje genérico traducido y el detalle original queda en la consola. Pistas para Turso, columnas faltantes o staging ausente.
+9. **Errores:** caja roja con `job.error`; en inglés se muestra un mensaje genérico traducido y el detalle original queda en la consola. Pistas para Turso, columnas faltantes o staging ausente. Un `413` muestra un aviso específico: el archivo supera el límite del servidor y debe subirse por CLI o dividirse.
 10. **Recarga:** la lista empieza vacía; si hay un trabajo en ejecución, se recupera y continúa el polling. Un trabajo terminado no se restaura.
 
 ### E. Accesibilidad y responsive

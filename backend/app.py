@@ -769,8 +769,8 @@ def payload_too_large(_error):
     return (
         jsonify(
             {
-                "error": "La subida supera el límite de 512 MB.",
-                "hint": "Sube los CSV por lotes o usa la carpeta hackathon del servidor.",
+                "error": "La subida supera el límite permitido por el servidor.",
+                "hint": "Render también limita el tamaño de la petición. Usa el CLI del ETL o divide el CSV en partes más pequeñas.",
             }
         ),
         413,
